@@ -14,6 +14,8 @@ export interface Database {
   withUser<T>(userId: string, fn: (tx: Tx) => Promise<T>): Promise<T>;
   /** Runs fn with the server role (bypasses RLS). Only for trusted server code: automation, token storage, sign-up. */
   asService<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
+  /** Runs fn as the connecting database owner (no role switch). Only for schema migrations. */
+  asOwner<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
   readonly kind: "pglite" | "postgres";
   close(): Promise<void>;
 }
@@ -63,6 +65,9 @@ export async function createPGliteDatabase(dataDir?: string): Promise<Database> 
     async asService(fn) {
       return pg.transaction(async (tx) => fn(wrap(tx))) as Promise<any>;
     },
+    async asOwner(fn) {
+      return pg.transaction(async (tx) => fn(wrap(tx))) as Promise<any>;
+    },
     async close() {
       await pg.close();
     },
@@ -95,6 +100,9 @@ export async function createPostgresDatabase(url: string): Promise<Database> {
         await tx.unsafe("set local role service_role");
         return fn(wrap(tx));
       }) as Promise<any>;
+    },
+    async asOwner(fn) {
+      return sql.begin(async (tx: any) => fn(wrap(tx))) as Promise<any>;
     },
     async close() {
       await sql.end();

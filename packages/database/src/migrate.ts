@@ -19,20 +19,20 @@ export async function migrate(db: Database, opts: { root?: string; log?: (m: str
     .filter((f) => !(local && f.endsWith(".supabase.sql")))
     .sort();
 
-  await db.asService(async (tx) => {
+  await db.asOwner(async (tx) => {
     if (local) await tx.exec(fs.readFileSync(path.join(root, "supabase", "local", "auth_shim.sql"), "utf8"));
     await tx.exec("create schema if not exists cf_meta");
     await tx.exec("create table if not exists cf_meta.migrations (name text primary key, applied_at timestamptz not null default now())");
   });
 
   const applied = new Set(
-    (await db.asService((tx) => tx.query<{ name: string }>("select name from cf_meta.migrations"))).map((r) => r.name),
+    (await db.asOwner((tx) => tx.query<{ name: string }>("select name from cf_meta.migrations"))).map((r) => r.name),
   );
   const ran: string[] = [];
   for (const f of files) {
     if (applied.has(f)) continue;
     const sql = fs.readFileSync(path.join(dir, f), "utf8");
-    await db.asService(async (tx) => {
+    await db.asOwner(async (tx) => {
       await tx.exec(sql);
       await tx.query("insert into cf_meta.migrations (name) values ($1)", [f]);
     });
