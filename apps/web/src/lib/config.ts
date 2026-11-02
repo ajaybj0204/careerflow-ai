@@ -22,7 +22,11 @@ export function authMode(): "supabase" | "local" {
 }
 
 export function appUrl(): string {
-  return (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100").replace(/\/$/, "");
+  const configured = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  // On Vercel, never send users back to a localhost address (a common copy-paste mistake).
+  if (process.env.VERCEL && (!configured || /localhost|127\.0\.0\.1/.test(configured)) && process.env.VERCEL_PROJECT_PRODUCTION_URL)
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return configured || "http://localhost:3100";
 }
 
 /** Local test sign-in is allowed only outside production unless explicitly enabled. */
