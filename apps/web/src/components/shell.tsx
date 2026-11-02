@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutDashboard, Bell, CalendarDays, Compass, Globe, Bookmark, Briefcase, PanelsTopLeft, Inbox, FileText, Mail, Sparkles, FolderLock, MessagesSquare, FlaskConical, GraduationCap, Target, ChartColumn, Building2, Contact, Send, BadgeIndianRupee, ShieldAlert, UserRound, Linkedin, Rocket, Route, Settings, Search, X, Menu, Waypoints, Circle } from "lucide-react";
 const Icons = { LayoutDashboard, Bell, CalendarDays, Compass, Globe, Bookmark, Briefcase, PanelsTopLeft, Inbox, FileText, Mail, Sparkles, FolderLock, MessagesSquare, FlaskConical, GraduationCap, Target, ChartColumn, Building2, Contact, Send, BadgeIndianRupee, ShieldAlert, UserRound, Linkedin, Rocket, Route, Settings, Search, X, Menu, Waypoints, Circle };
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { ThemeToggle, ToastProvider } from "./client";
 import { CreatedBy, Logo } from "./logo";
@@ -16,6 +17,65 @@ function Icon({ name, className = "size-4" }: { name: string; className?: string
 
 function isActive(path: string, href: string) {
   return href === "/app" ? path === "/app" : path === href || path.startsWith(href + "/");
+}
+
+const NAV_ITEMS = NAV.flatMap((g) => g.items);
+const EXTRA_LABELS: Record<string, string> = { new: "New", tailor: "Tailor" };
+
+/** The menu page a path belongs to (e.g. /app/applications/123 → Applications). */
+function sectionOf(path: string) {
+  return NAV_ITEMS.filter((it) => it.href !== "/app" && isActive(path, it.href)).sort((a, b) => b.href.length - a.href.length)[0];
+}
+
+/** Where "Back" goes when there is no in-app history: the section page, or the dashboard. */
+function parentOf(path: string) {
+  const section = sectionOf(path);
+  if (section && section.href !== path) return section.href;
+  return "/app";
+}
+
+function BackBar({ path, canGoBack }: { path: string; canGoBack: boolean }) {
+  const router = useRouter();
+  if (path === "/app") return null;
+  const section = sectionOf(path);
+  const rest = section ? path.slice(section.href.length).split("/").filter(Boolean) : [];
+  const last = rest[rest.length - 1];
+  const detail = last ? (EXTRA_LABELS[last] ?? (rest.includes("tailor") ? "Tailor" : "Details")) : null;
+  const goBack = () => (canGoBack ? router.back() : router.push(parentOf(path)));
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3">
+      <button onClick={goBack} className="btn btn-secondary btn-sm group" aria-label="Go back">
+        <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" /> Back
+      </button>
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
+        <Link href="/app" className="flex items-center gap-1 hover:text-accent">
+          <Icons.LayoutDashboard className="size-3.5" /> Dashboard
+        </Link>
+        {section && (
+          <>
+            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+            {detail ? (
+              <Link href={section.href} className="truncate hover:text-accent">
+                {section.label}
+              </Link>
+            ) : (
+              <span className="truncate font-semibold text-ink" aria-current="page">
+                {section.label}
+              </span>
+            )}
+          </>
+        )}
+        {detail && (
+          <>
+            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate font-semibold text-ink" aria-current="page">
+              {detail}
+            </span>
+          </>
+        )}
+      </nav>
+    </div>
+  );
 }
 
 function SideNav({ onNavigate, counts }: { onNavigate?: () => void; counts: Record<string, number> }) {
@@ -119,6 +179,13 @@ export function AppShell({ children, user, counts, signOut, banner }: { children
   const [palette, setPalette] = useState(false);
   const path = usePathname();
   useEffect(() => setDrawer(false), [path]);
+  // Count page changes inside the app, so Back can use browser history when it stays in the app
+  const visits = useRef(0);
+  const [canGoBack, setCanGoBack] = useState(false);
+  useEffect(() => {
+    visits.current += 1;
+    setCanGoBack(visits.current > 1);
+  }, [path]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -198,6 +265,7 @@ export function AppShell({ children, user, counts, signOut, banner }: { children
           </header>
           {banner}
           <main id="main" className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <BackBar path={path} canGoBack={canGoBack} />
             {children}
           </main>
         </div>
