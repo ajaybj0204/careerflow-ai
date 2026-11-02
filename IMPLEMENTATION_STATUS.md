@@ -133,3 +133,14 @@ Legend
 | Deployable and maintainable | ✅ build passes · ⬜ not deployed |
 
 **CareerFlow AI is not production-ready yet**: the live integrations above must be configured and verified first.
+
+## Live verification (2026-11-02, https://careerflow-ajaybj.vercel.app)
+- ✅ Supabase project `careerflow-ai` (Mumbai): 5 migrations applied, RLS on all 60 tables, security advisor clean.
+- ✅ Google sign-in via Supabase on the live site (session created, onboarding loaded from the database).
+- ✅ Gemini AI on the live site (Copilot answer; missing profile facts listed instead of invented).
+  Model `gemini-2.5-flash` was retired for new users → now `gemini-3.6-flash` with automatic fallbacks.
+- ✅ Connect Gmail on the live site: read-only scope granted, tokens stored encrypted, sync checkpoint set via the Gmail API.
+- ⬜ Historical Gmail import on real mail (user's choice in Settings → Gmail).
+- ⬜ Frequent background schedule: add GitHub secrets `APP_URL` and `CRON_SECRET` (Vercel Hobby cron runs once a day).
+- ⬜ Gmail push (Pub/Sub) not configured; polling fallback is used.
+- Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.
