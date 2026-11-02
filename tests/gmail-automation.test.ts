@@ -263,3 +263,40 @@ describe("background job retries", () => {
     expect(errs).toHaveLength(2);
   });
 });
+
+describe("job portal email formats", () => {
+  it("reads LinkedIn, Indeed and 'applying for X at Y' confirmations", () => {
+    const li = classifyEmail(
+      mail({ subject: "Asha, your application was sent to Acme Pay", text: "Your application was sent to Acme Pay\n\nPayments Operations Analyst\nAcme Pay · Bengaluru, Karnataka, India\nApplied on 1 Nov", from: "LinkedIn <jobs-noreply@linkedin.com>" }),
+    );
+    expect(li.category).toBe("application_confirmation");
+    expect(li.company).toBe("Acme Pay");
+    expect(li.jobTitle).toBe("Payments Operations Analyst");
+    expect(li.source).toBe("LinkedIn");
+    const indeed = classifyEmail(mail({ subject: "Indeed Application: Data Analyst", text: "Your application has been submitted to Beta Analytics. Good luck!", from: "Indeed <indeedapply@indeed.com>" }));
+    expect(indeed.jobTitle).toBe("Data Analyst");
+    expect(indeed.company).toBe("Beta Analytics");
+    const generic = classifyEmail(mail({ subject: "Application received", text: "Thank you for applying for the Business Analyst position at Gamma Corp. We will review it.", from: "careers@gammacorp.example" }));
+    expect(generic.jobTitle).toBe("Business Analyst");
+    expect(generic.company).toBe("Gamma Corp");
+  });
+});
+
+describe("re-checking emails in Needs Review", () => {
+  it("re-reads waiting emails with current rules and creates applications it can now identify", async () => {
+    const { reprocessReviewEmails } = await import("@careerflow/core");
+    const m = mail({ subject: "Asha, your application was sent to Delta Pay", text: "Your application was sent to Delta Pay\n\nRisk Analyst\nDelta Pay · Mumbai", from: "LinkedIn <jobs-noreply@linkedin.com>" });
+    gmail.add(m);
+    // Simulate an item left in review by an older rule set
+    await db.asService(async (tx) => {
+      const pm = await tx.one<{ id: string }>("insert into processed_messages (user_id, gmail_message_id, thread_id, outcome) values ($1,$2,$3,'review') returning id", [user, m.id, m.threadId]);
+      await tx.query("insert into review_queue (user_id, kind, processed_message_id, suggestion) values ($1,'new_application',$2,'{}'::jsonb)", [user, pm!.id]);
+    });
+    const r = await reprocessReviewEmails(db, user, 20);
+    expect(r.processed).toBe(1);
+    expect(r.outcomes).toMatchObject({ created: 1 });
+    const apps = await q("select company, role_title from applications");
+    expect(apps).toEqual([{ company: "Delta Pay", role_title: "Risk Analyst" }]);
+    expect(await q("select * from review_queue where status = 'open'")).toHaveLength(0);
+  });
+});

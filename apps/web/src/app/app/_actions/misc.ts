@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import {
   analyzeOfferLetter,
+  enqueueJob,
   deleteAccount,
   detectScam,
   disconnectGmail,
@@ -73,6 +74,15 @@ export async function gmailSyncNowAction(_: ActionState, _f: FormData) {
     const n = Object.entries(r.outcomes).map(([k, v]) => `${v} ${k}`).join(", ");
     return { message: r.mode === "initialised" ? "Sync checkpoint set. New emails from now on will be tracked." : `Checked Gmail (${r.mode}). ${n || "No new job emails."}` };
   }, ["/app/settings", "/app/applications", "/app/review"]);
+}
+
+export async function gmailReprocessAction(_: ActionState, _f: FormData) {
+  return act(async () => {
+    const { user, db } = await userDb();
+    assertRateLimit(user.id, "gmail-reprocess", 3, 60_000);
+    await db.asService((tx) => enqueueJob(tx, { userId: user.id, type: "gmail.reprocess", dedupeKey: `gmail.reprocess:${user.id}:${Date.now()}` }));
+    return { message: "Queued. Emails waiting for review will be re-checked in the background with the latest rules." };
+  }, ["/app/settings", "/app/review"]);
 }
 
 export async function gmailDisconnectAction(_: ActionState, f: FormData) {

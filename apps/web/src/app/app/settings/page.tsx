@@ -4,7 +4,7 @@ import { ExtensionTokenForm } from "@/components/forms";
 import { Badge, Card, fmtDate, Notice, PageHeader, timeAgo } from "@/components/ui";
 import { integrationStatus } from "@/lib/config";
 import { withUser } from "@/lib/session";
-import { deleteAccountAction, extensionTokenAction, gmailDisconnectAction, gmailImportAction, gmailSyncNowAction, preferencesAction, revokeExtensionTokenAction } from "../_actions/misc";
+import { deleteAccountAction, extensionTokenAction, gmailDisconnectAction, gmailImportAction, gmailReprocessAction, gmailSyncNowAction, preferencesAction, revokeExtensionTokenAction } from "../_actions/misc";
 
 export const metadata = { title: "Settings" };
 
@@ -118,6 +118,9 @@ export default async function Settings({ searchParams }: { searchParams: Promise
               <div className="flex flex-col justify-end gap-2">
                 <ActionButton action={gmailSyncNowAction} className="btn btn-secondary btn-sm" pendingText="Checking…">
                   Check for new emails now
+                </ActionButton>
+                <ActionButton action={gmailReprocessAction} className="btn btn-ghost btn-sm">
+                  Re-check emails needing review
                 </ActionButton>
               </div>
             </div>

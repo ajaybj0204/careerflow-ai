@@ -79,6 +79,9 @@ const RULES: Rule[] = [
       /\byour application (to|for|at) .{2,80} (has been|was) (received|submitted)\b/i,
       /\bapplied successfully\b|\bsuccessfully applied\b/i,
       /\bapplication sent to\b/i,
+      /\byour application was sent to\b/i,
+      /^indeed application:/im,
+      /\byour application (?:has been|was) (?:submitted|sent)\b/i,
     ],
     weak: [/\bthank you for your interest\b/i, /\byour application\b/i],
   },
@@ -176,6 +179,51 @@ function extractCompany(m: GmailMessage, source: string | null, title: string | 
   return domainName ? domainName.charAt(0).toUpperCase() + domainName.slice(1) : null;
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const trimField = (s: string | undefined | null) => {
+  const v = s?.replace(/\s+/g, " ").replace(/^[\s"“'-]+|[\s"”'.,!:-]+$/g, "").trim();
+  return v && v.length >= 2 && v.length <= 90 ? v : null;
+};
+
+/**
+ * Formats used by common job portals and applicant tracking systems. These win over the general rules.
+ * Examples (fictional): LinkedIn "Asha, your application was sent to Acme Pay" with body lines
+ * "Payments Analyst" / "Acme Pay · Bengaluru"; Indeed "Indeed Application: Data Analyst";
+ * "Thank you for applying for the Business Analyst position at Acme".
+ */
+export function portalExtract(m: Pick<GmailMessage, "subject" | "text">): { company: string | null; title: string | null } {
+  const subj = m.subject ?? "";
+  const text = (m.text ?? "").slice(0, 4000);
+  let company: string | null = null;
+  let title: string | null = null;
+
+  // LinkedIn Easy Apply confirmation
+  const li = subj.match(/your application was sent to\s+(.+?)\s*$/i) ?? text.match(/your application was sent to\s+([^\n]+?)\s*(?:\n|$)/i);
+  if (li) {
+    company = trimField(li[1]);
+    if (company) {
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const idx = lines.findIndex((l) => new RegExp(`^${escapeRe(company!)}\\s*[·•|-]`, "i").test(l));
+      if (idx > 0 && !/application was sent/i.test(lines[idx - 1])) title = trimField(lines[idx - 1]);
+    }
+  }
+  // Indeed: "Indeed Application: <title>"
+  const indeed = subj.match(/indeed application:\s*(.+)$/i);
+  if (indeed) {
+    title = title ?? trimField(indeed[1]);
+    company = company ?? trimField(text.match(/(?:submitted|sent) to\s+([^\n.]+?)(?:\.|\n|\s+-\s)/i)?.[1]);
+  }
+  // "applying for (the) <title> (position|role) at <company>" / "application for <title> at <company>"
+  const forAt = `${subj}\n${text}`.match(/\b(?:applying|application|applied)\s+for\s+(?:the\s+)?(?:position\s+of\s+|role\s+of\s+)?["“]?([^"”\n]{3,80}?)["”]?\s+(?:position\s+|role\s+|job\s+|opening\s+)?(?:at|with)\s+([A-Z][^\n.,!]{1,60})/);
+  if (forAt) {
+    title = title ?? trimField(forAt[1]);
+    company = company ?? trimField(forAt[2]);
+  }
+  // "your application for the <title> position/role/job"
+  title = title ?? trimField(`${subj}\n${text}`.match(/\byour application for (?:the\s+)?([^\n]{3,80}?)\s+(?:position|role|job|opening)\b/i)?.[1]);
+  return { company, title };
+}
+
 function extractTitle(m: GmailMessage): string | null {
   const s = `${m.subject}\n${m.text.slice(0, 2000)}`;
   const re = [
@@ -219,8 +267,9 @@ export function classifyEmail(m: GmailMessage): RuleClassification {
 
   const base = (category: EmailCategory, confidence: number, matched: string[]): RuleClassification => {
     const links = extractLinks(body);
-    const jobTitle = category === "not_job_related" ? null : extractTitle(m);
-    const company = category === "not_job_related" ? null : extractCompany(m, source, jobTitle);
+    const portal = category === "not_job_related" ? { company: null, title: null } : portalExtract(m);
+    const jobTitle = category === "not_job_related" ? null : (portal.title ?? extractTitle(m));
+    const company = category === "not_job_related" ? null : (portal.company ?? extractCompany(m, source, jobTitle));
     return {
       category,
       confidence,

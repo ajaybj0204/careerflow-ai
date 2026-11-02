@@ -1,7 +1,7 @@
 import type { Database } from "@careerflow/database";
 import { scheduleFollowUps } from "./applications";
 import { enqueueJob, notify, runDueJobs, type JobHandler } from "./automation";
-import { incrementalSync, renewWatch, runImportPage, schedulePeriodicGmailWork } from "./gmail-sync";
+import { incrementalSync, reprocessReviewEmails, renewWatch, runImportPage, schedulePeriodicGmailWork } from "./gmail-sync";
 import { runJobAlerts } from "./jobs";
 import { refreshStrategy } from "./strategy";
 
@@ -11,6 +11,10 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
   },
   "gmail.sync": async (db, job) => {
     await incrementalSync(db, job.user_id!);
+  },
+  "gmail.reprocess": async (db, job) => {
+    const r = await reprocessReviewEmails(db, job.user_id!, 20);
+    if (r.more) await db.asService((tx) => enqueueJob(tx, { userId: job.user_id, type: "gmail.reprocess", dedupeKey: `gmail.reprocess:${job.user_id}:${Date.now()}` }));
   },
   "gmail.renew_watch": async (db, job) => {
     await renewWatch(db, job.user_id!);

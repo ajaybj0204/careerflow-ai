@@ -538,3 +538,45 @@ export async function saveGmailConnection(db: Database, userId: string, t: { goo
   );
   await db.asService((tx) => tx.query("insert into gmail_sync_state (user_id) values ($1) on conflict do nothing", [userId]));
 }
+
+/**
+ * Re-reads emails still waiting in Needs Review (from Gmail, in batches) with the current classifier,
+ * so improvements to the rules apply to earlier imports. Items the user already resolved are untouched;
+ * anything still unclear goes back into review.
+ */
+export async function reprocessReviewEmails(db: Database, userId: string, batch = 20) {
+  const items = await db.asService((tx) =>
+    tx.query<{ id: string; pm_id: string; gmail_message_id: string }>(
+      `select r.id, m.id as pm_id, m.gmail_message_id from review_queue r join processed_messages m on m.id = r.processed_message_id
+       where r.user_id = $1 and r.status = 'open' and r.kind in ('new_application','email_match')
+       order by r.created_at limit $2`,
+      [userId, batch],
+    ),
+  );
+  if (!items.length) return { processed: 0, outcomes: {}, more: false };
+  const api = await gmailApiFor(db, userId);
+  const outcomes: Record<string, number> = {};
+  for (const it of items) {
+    let msg: GmailMessage;
+    try {
+      msg = await api.getMessage(it.gmail_message_id);
+    } catch (e) {
+      if (e instanceof GmailHttpError && e.status === 404) {
+        // Email deleted in Gmail: dismiss the review item
+        await db.asService((tx) => tx.query("update review_queue set status = 'dismissed', resolved_at = now() where id = $1", [it.id]));
+        outcomes.gone = (outcomes.gone ?? 0) + 1;
+        continue;
+      }
+      throw e;
+    }
+    // Remove the earlier result (cascades to its classification and review item), then process again
+    await db.asService((tx) => tx.query("delete from processed_messages where id = $1 and user_id = $2", [it.pm_id, userId]));
+    const r = await processGmailMessage(db, userId, msg);
+    outcomes[r.outcome] = (outcomes[r.outcome] ?? 0) + 1;
+    await new Promise((res) => setTimeout(res, IMPORT_PAUSE_MS));
+  }
+  const left = await db.asService((tx) =>
+    tx.one<{ n: number }>("select count(*)::int as n from review_queue where user_id = $1 and status = 'open' and kind in ('new_application','email_match') and created_at < now() - interval '5 minutes'", [userId]),
+  );
+  return { processed: items.length, outcomes, more: (left?.n ?? 0) > 0 && items.length === batch };
+}
