@@ -354,3 +354,21 @@ describe("analytics and strategy use real records", () => {
     expect(await q("select * from applications where company = 'Secret Co'")).toHaveLength(0);
   });
 });
+
+describe("Gemini model fallback", () => {
+  it("moves past retired (404) and overloaded (503) models", async () => {
+    const tried: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      const m = String(url).match(/models\/([^:]+):/)![1];
+      tried.push(m);
+      if (m === "retired-model") return new Response("{}", { status: 404 });
+      if (m === "busy-model") return new Response("{}", { status: 503 });
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"answer":"ok"}' }] } }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const p = new GeminiProvider("k", "retired-model", undefined, fetchImpl, ["busy-model", "good-model"]);
+    const r = await p.generateJson({ feature: "t", system: "s", prompt: "p", schema: z.object({ answer: z.string() }) });
+    expect(r.data.answer).toBe("ok");
+    expect(r.model).toBe("good-model");
+    expect(tried).toEqual(["retired-model", "busy-model", "busy-model", "good-model"]);
+  });
+});

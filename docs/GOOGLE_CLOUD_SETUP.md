@@ -27,5 +27,5 @@ Watches expire after 7 days; the scheduler renews them automatically. Polling re
 
 ## Gemini API key
 1. https://aistudio.google.com/apikey → Create API key (restrict it to the Generative Language API).
-2. `GEMINI_API_KEY=...`, optional `GEMINI_MODEL` (default `gemini-2.5-flash`).
+2. `GEMINI_API_KEY=...`, optional `GEMINI_MODEL` (default `gemini-3.6-flash`) and `GEMINI_FALLBACK_MODELS` (tried in order when a model is busy or retired).
 The provider sits behind `packages/ai` so another provider can be added without touching feature code.

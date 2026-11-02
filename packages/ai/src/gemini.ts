@@ -25,14 +25,43 @@ function extractJson(text: string): string {
   return start >= 0 && end > start ? text.slice(start, end + 1) : text;
 }
 
+/** Default model, then fallbacks used when a model is overloaded (503), rate-limited (429) or retired (404). */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+export const DEFAULT_GEMINI_FALLBACKS = ["gemini-3.5-flash", "gemini-3.5-flash-lite"];
+
 export class GeminiProvider implements AIProvider {
   readonly name = "gemini";
+  private models: string[];
   constructor(
     private apiKey: string,
-    readonly model: string = "gemini-2.5-flash",
+    readonly model: string = DEFAULT_GEMINI_MODEL,
     private onAudit?: (e: AuditEntry) => void | Promise<void>,
     private fetchImpl: typeof fetch = fetch,
-  ) {}
+    fallbacks: string[] = DEFAULT_GEMINI_FALLBACKS,
+  ) {
+    this.models = [...new Set([model, ...fallbacks].filter(Boolean))];
+  }
+
+  /** Sends one request, moving to the next model when a model is unavailable. Retries a busy model once. */
+  private async send(body: unknown): Promise<{ res: Response; model: string }> {
+    let last: { res: Response; model: string } | null = null;
+    for (const m of this.models) {
+      for (let tryNo = 0; tryNo < 2; tryNo++) {
+        const res = await this.fetchImpl(`${ENDPOINT}/${encodeURIComponent(m)}:generateContent`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(90_000),
+        });
+        if (res.ok) return { res, model: m };
+        last = { res, model: m };
+        if (res.status === 404) break; // model retired or unavailable for this key: try the next one
+        if (res.status !== 503 && res.status !== 429 && res.status !== 500) return last; // not a capacity problem
+        if (tryNo === 0) await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+    return last!;
+  }
 
   async generateJson<T>(req: GenerateJsonRequest<T>): Promise<GenerateJsonResult<T>> {
     const schemaJson = jsonSchemaFor(req.schema);
@@ -59,13 +88,9 @@ export class GeminiProvider implements AIProvider {
       }
 
       let res: Response;
+      let usedModel = this.model;
       try {
-        res = await this.fetchImpl(`${ENDPOINT}/${encodeURIComponent(this.model)}:generateContent`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(90_000),
-        });
+        ({ res, model: usedModel } = await this.send(body));
       } catch (e) {
         await this.audit(req, inputChars, 0, "error", String(e));
         throw new Error("Could not reach the AI service. Please try again.");
@@ -73,7 +98,7 @@ export class GeminiProvider implements AIProvider {
       if (!res.ok) {
         const detail = (await res.text()).slice(0, 300);
         await this.audit(req, inputChars, 0, "error", `HTTP ${res.status}`);
-        if (res.status === 429) throw new Error("The AI service is rate-limited right now. Please wait a minute and retry.");
+        if (res.status === 429 || res.status === 503) throw new Error("The AI service is busy right now. Please wait a minute and retry.");
         if (res.status === 400 && /API key/i.test(detail)) throw new Error("The Gemini API key was rejected. Check GEMINI_API_KEY.");
         throw new Error(`AI request failed (HTTP ${res.status}).`);
       }
@@ -104,7 +129,7 @@ export class GeminiProvider implements AIProvider {
         .filter((w: any) => w?.uri)
         .map((w: any) => ({ title: w.title ?? w.uri, url: w.uri }));
       await this.audit(req, inputChars, text.length, "ok");
-      return { data: result.data, sources, model: this.model };
+      return { data: result.data, sources, model: usedModel };
     }
     await this.audit(req, inputChars, 0, "invalid_output", lastError);
     throw new AIOutputError("The AI returned an answer in an unexpected format. Nothing was saved. Please try again.");

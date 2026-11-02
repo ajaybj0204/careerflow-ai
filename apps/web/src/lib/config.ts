@@ -11,7 +11,7 @@ export function integrationStatus() {
     tokenEncryption: !!process.env.TOKEN_ENCRYPTION_KEY,
     gmailPush: !!process.env.GMAIL_PUBSUB_TOPIC,
     ai: !!process.env.GEMINI_API_KEY,
-    aiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    aiModel: process.env.GEMINI_MODEL || "gemini-3.6-flash",
     adzuna: !!(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY),
     cronSecret: !!process.env.CRON_SECRET,
   };

@@ -1,4 +1,4 @@
-import { GeminiProvider } from "./gemini";
+import { DEFAULT_GEMINI_MODEL, GeminiProvider } from "./gemini";
 import { AINotConfiguredError, type AIProvider, type AuditEntry } from "./provider";
 
 export * from "./provider";
@@ -19,7 +19,7 @@ export function getAIProvider(onAudit?: (e: AuditEntry) => void | Promise<void>)
   if (override !== undefined) return override;
   const provider = (process.env.AI_PROVIDER ?? "gemini").toLowerCase();
   if (provider === "gemini" && process.env.GEMINI_API_KEY) {
-    return new GeminiProvider(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || "gemini-2.5-flash", onAudit);
+    return new GeminiProvider(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, onAudit, fetch, (process.env.GEMINI_FALLBACK_MODELS ? process.env.GEMINI_FALLBACK_MODELS.split(",").map((s) => s.trim()) : undefined));
   }
   return null;
 }
