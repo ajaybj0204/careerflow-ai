@@ -142,5 +142,7 @@ Legend
 - ✅ Connect Gmail on the live site: read-only scope granted, tokens stored encrypted, sync checkpoint set via the Gmail API.
 - ✅ Historical Gmail import on real mail (90 days): 38 applications created automatically, the rest sent to Needs Review.
 - ✅ Frequent background schedule: GitHub Actions calls the tick every 15 minutes (secrets set, run verified 200). Vercel cron remains as a daily backup.
+- ✅ Title-less confirmations (LinkedIn's newer layout, "Thank you for applying to X") now create applications; re-check raised tracked applications from 38 to 105 and cut Needs Review from 207 to 135.
+- ✅ Visual redesign (2026-11-02): gradient brand, new logo/favicon, animated backgrounds and entrances, "Created by Ajay B J" credit.
 - ⬜ Gmail push (Pub/Sub) not configured; polling fallback is used.
 - Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.
