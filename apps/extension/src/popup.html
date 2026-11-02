@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CareerFlow AI</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <strong>CareerFlow AI</strong>
+      <a href="options.html" target="_blank" id="settings">Settings</a>
+    </header>
+    <section id="setup" hidden>
+      <p>Connect the extension to your CareerFlow account first.</p>
+      <a class="btn primary" href="options.html" target="_blank">Open settings</a>
+    </section>
+    <section id="main" hidden>
+      <div id="existing" class="note" hidden></div>
+      <button id="capture" class="btn primary">Capture this job posting</button>
+      <form id="form" hidden>
+        <label>Role <input name="roleTitle" required maxlength="200" /></label>
+        <label>Company <input name="company" required maxlength="200" /></label>
+        <label>Location <input name="location" maxlength="200" /></label>
+        <label>Portal <input name="portal" maxlength="100" /></label>
+        <label>Job description <textarea name="description" rows="5"></textarea></label>
+        <p class="hint" id="source"></p>
+        <button class="btn primary" type="submit">Save to CareerFlow</button>
+      </form>
+      <div id="saved" hidden>
+        <p class="ok" id="savedMsg"></p>
+        <a id="open" class="btn" target="_blank">Open workspace</a>
+        <button id="applied" class="btn">I submitted this application</button>
+        <p class="hint">Only click after you have actually submitted on the job site. CareerFlow never submits for you.</p>
+      </div>
+      <details id="answersBox">
+        <summary>Autofill suggestions</summary>
+        <p class="hint">Click to copy, then paste into the form yourself.</p>
+        <div id="answers"></div>
+      </details>
+    </section>
+    <p id="error" class="error" hidden></p>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

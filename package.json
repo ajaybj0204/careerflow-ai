@@ -1,0 +1,31 @@
+{
+  "name": "careerflow-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CareerFlow AI: from job search to job offer, all in one place.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @careerflow/web",
+    "build": "npm run build -w @careerflow/web",
+    "start": "npm run start -w @careerflow/web",
+    "worker": "npm run start -w @careerflow/worker",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck -w @careerflow/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "extension:build": "npm run build -w @careerflow/extension"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.18"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "@careerflow/document-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./*": "./src/*.ts" },
+  "dependencies": { "jszip": "^3.10.1", "docx": "^9.5.0", "pdf-lib": "^1.17.1", "mammoth": "^1.9.0", "unpdf": "^1.0.0", "exceljs": "^4.4.0", "@careerflow/shared": "*" }
+}

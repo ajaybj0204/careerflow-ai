@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CareerFlow AI · Extension settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="options">
+    <h1>CareerFlow AI Companion</h1>
+    <p>Create a personal token in CareerFlow → Settings → Chrome extension, then paste it here.</p>
+    <form id="form">
+      <label>CareerFlow URL <input name="appUrl" placeholder="https://your-app.vercel.app or http://localhost:3100" required /></label>
+      <label>Extension token <input name="token" type="password" placeholder="cfx_…" required /></label>
+      <button class="btn primary" type="submit">Save and test</button>
+    </form>
+    <p id="status"></p>
+    <h2>Privacy</h2>
+    <ul>
+      <li>The extension reads a page only when you click “Capture” in the popup.</li>
+      <li>It does not track your browsing, store portal passwords, or submit applications.</li>
+      <li>It talks only to the CareerFlow URL you enter here.</li>
+    </ul>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

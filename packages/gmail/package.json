@@ -1,0 +1,8 @@
+{
+  "name": "@careerflow/gmail",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./*": "./src/*.ts" },
+  "dependencies": { "jose": "^6.0.0", "@careerflow/shared": "*" }
+}

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "CareerFlow AI Companion",
+  "version": "0.1.0",
+  "description": "Save job postings to CareerFlow AI, avoid duplicates, and copy your approved answers. Never submits applications for you.",
+  "action": { "default_popup": "popup.html", "default_title": "CareerFlow AI" },
+  "options_page": "options.html",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "minimum_chrome_version": "114"
+}

@@ -1,0 +1,84 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getDatabase } from "@careerflow/database";
+import { createApplication, getCareerContext, recordEvent, setStatusManually } from "@careerflow/core";
+import { appUrl } from "@/lib/config";
+import { cors, withExtension } from "@/lib/extension";
+
+const saveSchema = z.object({
+  company: z.string().trim().min(1).max(200),
+  roleTitle: z.string().trim().min(1).max(200),
+  url: z.string().url().max(2000),
+  description: z.string().max(30000).optional().nullable(),
+  portal: z.string().max(100).optional().nullable(),
+  location: z.string().max(200).optional().nullable(),
+  externalJobId: z.string().max(100).optional().nullable(),
+});
+
+export async function OPTIONS(req: Request) {
+  return cors(req, new NextResponse(null, { status: 204 }));
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ action: string }> }) {
+  const { action } = await params;
+  return withExtension(req, async (uid) => {
+    const db = await getDatabase();
+    if (action === "lookup") {
+      const url = new URL(req.url).searchParams.get("url") ?? "";
+      const app = await db.withUser(uid, (tx) => tx.one("select id, company, role_title, status from applications where job_url = $1 limit 1", [url.slice(0, 2000)]));
+      return { application: app, workspaceUrl: app ? `${appUrl()}/app/applications/${app.id}` : null };
+    }
+    if (action === "answers") {
+      return db.withUser(uid, async (tx) => {
+        const ctx = await getCareerContext(tx);
+        const cp = await tx.one("select phone, linkedin_url, github_url, portfolio_url from career_profiles limit 1");
+        const answers = await tx.query("select question, answer from approved_answers order by updated_at desc limit 50");
+        // Suggestions only: the extension shows these for the user to copy; it never fills forms on its own.
+        return {
+          profile: {
+            name: ctx.profile.fullName,
+            email: ctx.profile.email,
+            phone: cp?.phone ?? null,
+            location: ctx.profile.location,
+            linkedin: cp?.linkedin_url ?? null,
+            github: cp?.github_url ?? null,
+            portfolio: cp?.portfolio_url ?? null,
+            totalExperienceYears: ctx.profile.yearsExperience,
+            noticePeriodDays: ctx.profile.noticePeriodDays,
+            currentCtcLpa: ctx.profile.currentCtcLpa,
+            expectedCtc: ctx.profile.expectedCtcMinLpa ? `${ctx.profile.expectedCtcMinLpa}${ctx.profile.expectedCtcMaxLpa ? `–${ctx.profile.expectedCtcMaxLpa}` : ""} LPA` : null,
+          },
+          answers,
+        };
+      });
+    }
+    if (action === "me") return { ok: true, appUrl: appUrl() };
+    throw new Error("Unknown action");
+  });
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
+  const { action } = await params;
+  return withExtension(req, async (uid) => {
+    const db = await getDatabase();
+    const body = await req.json().catch(() => ({}));
+    if (action === "save-job") {
+      const j = saveSchema.parse(body);
+      const r = await db.withUser(uid, (tx) =>
+        createApplication(tx, uid, { company: j.company, roleTitle: j.roleTitle, jobUrl: j.url, jobDescription: j.description ?? null, jobPortal: j.portal ?? null, location: j.location ?? null, externalJobId: j.externalJobId ?? null, status: "saved" }, { source: "extension" }),
+      );
+      return { id: r.application.id, duplicate: !!r.duplicateOf, workspaceUrl: `${appUrl()}/app/applications/${r.application.id}` };
+    }
+    if (action === "mark-applied") {
+      // Only called after the user clicks "I submitted this application" in the extension popup.
+      const { id, confirmed } = z.object({ id: z.string().uuid(), confirmed: z.literal(true) }).parse(body);
+      void confirmed;
+      await db.withUser(uid, async (tx) => {
+        await setStatusManually(tx, uid, id, "applied", "Marked as submitted from the Chrome extension");
+        await recordEvent(tx, uid, { applicationId: id, type: "note_added", source: "extension", payload: { note: "Submission confirmed by you in the extension" } });
+      });
+      return { ok: true };
+    }
+    throw new Error("Unknown action");
+  });
+}

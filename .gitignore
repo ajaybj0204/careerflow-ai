@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+# Local PGlite database and uploaded files (contain personal data)
+.data/
+apps/web/.data/
+# Built extension package
+apps/extension/dist/
+*.log
+.DS_Store
+.data-dev.log
