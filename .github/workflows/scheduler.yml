@@ -6,6 +6,10 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch: {}
+  # Also run once whenever this file changes on main, which starts the schedule on new repos.
+  push:
+    branches: [main]
+    paths: [".github/workflows/scheduler.yml"]
 jobs:
   tick:
     runs-on: ubuntu-latest
