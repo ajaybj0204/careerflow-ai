@@ -21,4 +21,9 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then echo "APP_URL/CRON_SECRET not set; skipping"; exit 0; fi
-          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/tick" --max-time 90
+          URL="${APP_URL%/}/api/cron/tick"
+          CODE=$(curl -sS -o /tmp/body -w "%{http_code}" -X POST -H "Authorization: Bearer $CRON_SECRET" "$URL" --max-time 90 || echo "000")
+          echo "HTTP $CODE"
+          if [ "$CODE" = "200" ]; then exit 0; fi
+          if [ "$CODE" = "401" ]; then echo "::error::Tick rejected (401): the CRON_SECRET repository secret does not match the app's CRON_SECRET"; exit 1; fi
+          echo "::error::Tick failed with HTTP $CODE. Check that APP_URL is the app's address, e.g. https://careerflow-ajaybj.vercel.app"; exit 1
