@@ -368,19 +368,24 @@ export async function startHistoricalImport(db: Database, userId: string, range:
 }
 
 /** Processes one page (up to 100 messages) of the historical import, then queues the next page. */
+export const IMPORT_PAGE_SIZE = Number(process.env.GMAIL_IMPORT_PAGE_SIZE ?? 25);
+const IMPORT_PAUSE_MS = Number(process.env.GMAIL_IMPORT_PAUSE_MS ?? 120);
+
 export async function runImportPage(db: Database, userId: string) {
   const st = await db.asService((tx) => tx.one("select * from gmail_sync_state where user_id = $1", [userId]));
   if (!st || !["queued", "running"].includes(st.import_status)) return { done: true };
   await db.asService((tx) => tx.query("update gmail_sync_state set import_status = 'running' where user_id = $1", [userId]));
   const api = await gmailApiFor(db, userId);
   const q = jobSearchQuery(new Date(st.import_range_start), st.import_range_end ? new Date(st.import_range_end) : undefined);
-  const page = await api.listMessages(q, st.import_page_token ?? undefined);
+  // Small pages with a short pause keep each run under serverless time limits and Gmail per-user quotas
+  const page = await api.listMessages(q, st.import_page_token ?? undefined, IMPORT_PAGE_SIZE);
   const counts: Record<string, number> = { ...(st.import_counts ?? {}) };
   for (const ref of page.messages) {
     const msg = await api.getMessage(ref.id);
     const r = await processGmailMessage(db, userId, msg);
     counts[r.outcome] = (counts[r.outcome] ?? 0) + 1;
     counts.scanned = (counts.scanned ?? 0) + 1;
+    await new Promise((r) => setTimeout(r, IMPORT_PAUSE_MS));
   }
   const done = !page.nextPageToken;
   await db.asService(async (tx) => {

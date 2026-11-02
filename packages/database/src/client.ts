@@ -79,7 +79,22 @@ export async function createPGliteDatabase(dataDir?: string): Promise<Database> 
 // ---------------------------------------------------------------------------
 export async function createPostgresDatabase(url: string): Promise<Database> {
   const { default: postgres } = await import("postgres");
-  const sql = postgres(url, { prepare: false, max: 5, idle_timeout: 20, ssl: /localhost|127\.0\.0\.1/.test(url) ? false : "require" });
+  const sql = postgres(url, {
+    prepare: false,
+    max: 5,
+    idle_timeout: 20,
+    ssl: /localhost|127\.0\.0\.1/.test(url) ? false : "require",
+    // The app passes JSON parameters already encoded (JSON.stringify + ::jsonb), as PGlite expects.
+    // postgres.js would encode them a second time, storing a JSON *string* instead of an object.
+    types: {
+      json: {
+        to: 114,
+        from: [114, 3802],
+        serialize: (x: unknown) => (typeof x === "string" ? x : JSON.stringify(x)),
+        parse: (x: string) => JSON.parse(x),
+      },
+    } as any,
+  });
   const wrap = (tx: any) =>
     makeTx(
       async (text, params) => [...(await tx.unsafe(text, (params ?? []) as any[]))],

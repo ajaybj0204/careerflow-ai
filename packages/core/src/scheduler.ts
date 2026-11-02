@@ -38,20 +38,20 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
  * One scheduler tick. Called by Vercel Cron (/api/cron/tick) or the standalone worker.
  * Queues periodic work, then runs due jobs. Works without any browser open.
  */
-export async function schedulerTick(db: Database, opts: { workerId: string; limit?: number }) {
+export async function schedulerTick(db: Database, opts: { workerId: string; limit?: number; budgetMs?: number }) {
   const gmailQueued = await schedulePeriodicGmailWork(db, { pollMinutes: Number(process.env.GMAIL_POLL_MINUTES ?? 30) });
   const day = new Date().toISOString().slice(0, 10);
   const hour = new Date().toISOString().slice(0, 13);
   const users = await db.asService((tx) => tx.query<{ id: string }>("select id from profiles"));
   await db.asService(async (tx) => {
     for (const u of users) {
-      await enqueueJob(tx, { userId: u.id, type: "followups.scan", dedupeKey: `followups:${u.id}:${day}` });
-      await enqueueJob(tx, { userId: u.id, type: "reminders.scan", dedupeKey: `reminders:${u.id}:${hour}` });
-      await enqueueJob(tx, { userId: u.id, type: "strategy.refresh", dedupeKey: `strategy:${u.id}:${day}` });
+      await enqueueJob(tx, { userId: u.id, type: "followups.scan", dedupeKey: `followups:${u.id}:${day}`, once: true });
+      await enqueueJob(tx, { userId: u.id, type: "reminders.scan", dedupeKey: `reminders:${u.id}:${hour}`, once: true });
+      await enqueueJob(tx, { userId: u.id, type: "strategy.refresh", dedupeKey: `strategy:${u.id}:${day}`, once: true });
     }
     const alertUsers = await tx.query<{ user_id: string }>("select distinct user_id from job_alerts where active");
-    for (const a of alertUsers) await enqueueJob(tx, { userId: a.user_id, type: "jobs.alerts", dedupeKey: `alerts:${a.user_id}:${hour}`, maxAttempts: 2 });
+    for (const a of alertUsers) await enqueueJob(tx, { userId: a.user_id, type: "jobs.alerts", dedupeKey: `alerts:${a.user_id}:${hour}`, maxAttempts: 2, once: true });
   });
-  const ran = await runDueJobs(db, JOB_HANDLERS, { workerId: opts.workerId, limit: opts.limit ?? 25 });
+  const ran = await runDueJobs(db, JOB_HANDLERS, { workerId: opts.workerId, limit: opts.limit ?? 25, budgetMs: opts.budgetMs ?? 40_000 });
   return { gmailQueued, ran };
 }

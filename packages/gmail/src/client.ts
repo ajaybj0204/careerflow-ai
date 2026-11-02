@@ -24,7 +24,7 @@ export interface GmailMessage {
 /** The subset of the Gmail API that CareerFlow uses. A fake implementation is used in tests. */
 export interface GmailApi {
   getProfile(): Promise<{ emailAddress: string; historyId: string }>;
-  listMessages(q: string, pageToken?: string): Promise<{ messages: GmailMessageRef[]; nextPageToken?: string }>;
+  listMessages(q: string, pageToken?: string, maxResults?: number): Promise<{ messages: GmailMessageRef[]; nextPageToken?: string }>;
   getMessage(id: string): Promise<GmailMessage>;
   /** Throws an error with status 404 when startHistoryId is too old. */
   listHistory(startHistoryId: string, pageToken?: string): Promise<{ messageIds: GmailMessageRef[]; historyId: string; nextPageToken?: string }>;
@@ -104,8 +104,8 @@ export function createGmailApi(getAccessToken: () => Promise<string>, fetchImpl:
       const j: any = await call("/profile");
       return { emailAddress: j.emailAddress, historyId: String(j.historyId) };
     },
-    async listMessages(q, pageToken) {
-      const p = new URLSearchParams({ q, maxResults: "100" });
+    async listMessages(q, pageToken, maxResults = 100) {
+      const p = new URLSearchParams({ q, maxResults: String(maxResults) });
       if (pageToken) p.set("pageToken", pageToken);
       const j: any = await call(`/messages?${p}`);
       return { messages: j.messages ?? [], nextPageToken: j.nextPageToken };

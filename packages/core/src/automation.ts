@@ -124,7 +124,12 @@ export async function notify(tx: Tx, userId: string, n: { type: NotificationType
 // ---------------------------------------------------------------------------
 // Job queue (runs in the background worker / cron endpoint, never in the browser)
 // ---------------------------------------------------------------------------
-export async function enqueueJob(tx: Tx, job: { userId: string | null; type: string; payload?: Record<string, unknown>; runAfter?: Date; dedupeKey?: string; maxAttempts?: number }) {
+export async function enqueueJob(
+  tx: Tx,
+  job: { userId: string | null; type: string; payload?: Record<string, unknown>; runAfter?: Date; dedupeKey?: string; maxAttempts?: number; once?: boolean },
+) {
+  // once: a periodic job (key includes the day/hour) runs only once per key, even after it finished
+  if (job.once && job.dedupeKey && (await tx.one("select 1 from automation_jobs where dedupe_key = $1 limit 1", [job.dedupeKey]))) return undefined;
   const rows = await tx.query(
     `insert into automation_jobs (user_id, type, payload, run_after, dedupe_key, max_attempts) values ($1,$2,$3::jsonb,coalesce($4::timestamptz, now()),$5,$6)
      on conflict (dedupe_key) where dedupe_key is not null and status in ('queued','running') do nothing returning id`,
@@ -149,18 +154,29 @@ export function backoffMs(attempts: number) {
 }
 
 /** Claims due jobs, runs them, and records success, retry (with backoff) or permanent failure. */
-export async function runDueJobs(db: Database, handlers: Record<string, JobHandler>, opts: { workerId: string; limit?: number; now?: Date } = { workerId: "worker" }) {
+export async function runDueJobs(
+  db: Database,
+  handlers: Record<string, JobHandler>,
+  opts: { workerId: string; limit?: number; now?: Date; budgetMs?: number } = { workerId: "worker" },
+) {
   await db.asService((tx) => tx.query("update automation_jobs set status = 'queued', locked_at = null where status = 'running' and locked_at < now() - interval '15 minutes'"));
-  const jobs = await db.asService((tx) =>
-    tx.query<JobRow>(
-      `update automation_jobs set status = 'running', locked_at = now(), locked_by = $1, attempts = attempts + 1
-       where id in (select id from automation_jobs where status = 'queued' and run_after <= coalesce($3::timestamptz, now()) order by run_after limit $2 for update skip locked)
-       returning id, user_id, type, payload, attempts, max_attempts`,
-      [opts.workerId, opts.limit ?? 20, opts.now?.toISOString() ?? null],
-    ),
-  );
+  // Jobs are claimed one at a time so a run never holds jobs it has no time left to start
+  // (serverless functions have a hard time limit).
+  const deadline = Date.now() + (opts.budgetMs ?? Number.POSITIVE_INFINITY);
+  const limit = opts.limit ?? 20;
+  const claimOne = () =>
+    db.asService((tx) =>
+      tx.one<JobRow>(
+        `update automation_jobs set status = 'running', locked_at = now(), locked_by = $1, attempts = attempts + 1
+         where id in (select id from automation_jobs where status = 'queued' and run_after <= coalesce($2::timestamptz, now()) order by run_after limit 1 for update skip locked)
+         returning id, user_id, type, payload, attempts, max_attempts`,
+        [opts.workerId, opts.now?.toISOString() ?? null],
+      ),
+    );
   const results: { id: string; type: string; ok: boolean; error?: string }[] = [];
-  for (const job of jobs) {
+  while (results.length < limit && Date.now() < deadline) {
+    const job = await claimOne();
+    if (!job) break;
     const handler = handlers[job.type];
     try {
       if (!handler) throw new Error(`No handler for job type ${job.type}`);
