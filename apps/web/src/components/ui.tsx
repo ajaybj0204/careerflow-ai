@@ -5,7 +5,8 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[1.6rem] font-semibold tracking-tight text-balance">{title}</h1>
+        <h1 className="text-[1.75rem] font-extrabold tracking-tight text-balance">{title}</h1>
+        <div className="bg-gradient mt-2 h-1 w-12 rounded-full" aria-hidden />
         {description && <p className="mt-1 max-w-3xl text-sm text-ink-2 text-pretty">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -54,8 +55,8 @@ export function StatusBadge({ status }: { status: ApplicationStatus }) {
 
 export function EmptyState({ icon, title, children, action }: { icon?: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line-strong px-6 py-12 text-center">
-      {icon && <div className="mb-3 text-muted">{icon}</div>}
+    <div className="bg-gradient-soft flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong px-6 py-12 text-center">
+      {icon && <div className="float mb-3 rounded-2xl bg-surface p-3 text-accent shadow-md">{icon}</div>}
       <p className="font-medium">{title}</p>
       {children && <div className="mt-1 max-w-md text-sm text-ink-2">{children}</div>}
       {action && <div className="mt-4">{action}</div>}
@@ -65,9 +66,10 @@ export function EmptyState({ icon, title, children, action }: { icon?: React.Rea
 
 export function Stat({ label, value, hint, href }: { label: string; value: React.ReactNode; hint?: string; href?: string }) {
   const body = (
-    <div className="card h-full p-4 transition hover:border-line-strong">
-      <div className="text-xs font-medium text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+    <div className="card card-hover h-full overflow-hidden p-4">
+      <div className="bg-gradient absolute inset-x-0 top-0 h-1" aria-hidden />
+      <div className="text-xs font-semibold tracking-wide text-muted uppercase">{label}</div>
+      <div className="text-gradient mt-1.5 text-3xl font-extrabold tabular-nums">{value}</div>
       {hint && <div className="mt-0.5 text-xs text-ink-2">{hint}</div>}
     </div>
   );
@@ -104,7 +106,7 @@ export function Tabs({ tabs, active, base }: { tabs: { id: string; label: string
           key={t.id}
           href={`${base}${base.includes("?") ? "&" : "?"}tab=${t.id}`}
           aria-current={active === t.id ? "page" : undefined}
-          className={`-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition ${active === t.id ? "border-accent font-medium text-ink" : "border-transparent text-ink-2 hover:text-ink"}`}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition ${active === t.id ? "border-[#a855f7] font-semibold text-ink" : "border-transparent text-ink-2 hover:border-line-strong hover:text-ink"}`}
         >
           {t.label}
           {t.count !== undefined && <span className="ml-1.5 text-xs text-muted">{t.count}</span>}

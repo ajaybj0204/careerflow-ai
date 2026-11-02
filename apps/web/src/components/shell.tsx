@@ -7,6 +7,7 @@ import { LayoutDashboard, Bell, CalendarDays, Compass, Globe, Bookmark, Briefcas
 const Icons = { LayoutDashboard, Bell, CalendarDays, Compass, Globe, Bookmark, Briefcase, PanelsTopLeft, Inbox, FileText, Mail, Sparkles, FolderLock, MessagesSquare, FlaskConical, GraduationCap, Target, ChartColumn, Building2, Contact, Send, BadgeIndianRupee, ShieldAlert, UserRound, Linkedin, Rocket, Route, Settings, Search, X, Menu, Waypoints, Circle };
 import { NAV } from "@/lib/nav";
 import { ThemeToggle, ToastProvider } from "./client";
+import { CreatedBy, Logo } from "./logo";
 
 function Icon({ name, className = "size-4" }: { name: string; className?: string }) {
   const C = (Icons as any)[name] ?? Icons.Circle;
@@ -34,11 +35,11 @@ function SideNav({ onNavigate, counts }: { onNavigate?: () => void; counts: Reco
                     href={it.href}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13.5px] transition ${active ? "bg-accent-soft font-medium text-accent" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
+                    className={`nav-item flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-[13.5px] ${active ? "" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}
                   >
                     <Icon name={it.icon} />
                     <span className="flex-1 truncate">{it.label}</span>
-                    {n ? <span className="rounded-full bg-accent px-1.5 text-[10.5px] font-semibold text-accent-ink tabular-nums">{n > 99 ? "99+" : n}</span> : null}
+                    {n ? <span className="bg-gradient rounded-full px-1.5 text-[10.5px] font-bold text-white tabular-nums shadow-sm">{n > 99 ? "99+" : n}</span> : null}
                   </Link>
                 </li>
               );
@@ -73,8 +74,8 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
     router.push(href);
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[12vh]" onClick={onClose} role="dialog" aria-modal="true" aria-label="Search">
-      <div className="card w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" aria-label="Search">
+      <div className="card card-glow pop-in w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-line px-3">
           <Icons.Search className="size-4 text-muted" />
           <input
@@ -99,7 +100,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
         <ul className="max-h-[50vh] overflow-y-auto p-1.5" role="listbox">
           {items.map((it, idx) => (
             <li key={it.href} role="option" aria-selected={idx === i}>
-              <button onMouseEnter={() => setI(idx)} onClick={() => go(it.href)} className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm ${idx === i ? "bg-surface-2" : ""}`}>
+              <button onMouseEnter={() => setI(idx)} onClick={() => go(it.href)} className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm ${idx === i ? "bg-gradient-soft text-ink" : ""}`}>
                 <Icon name={it.icon} className="size-4 text-muted" />
                 <span className="flex-1">{it.label}</span>
                 <span className="text-xs text-muted">{it.group}</span>
@@ -134,35 +135,38 @@ export function AppShell({ children, user, counts, signOut, banner }: { children
         Skip to content
       </a>
       <div className="flex min-h-dvh">
-        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 overflow-y-auto border-r border-line bg-surface lg:block">
-          <Link href="/app" className="flex items-center gap-2 px-5 pt-5 pb-1 font-semibold tracking-tight">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-ink">
-              <Icons.Waypoints className="size-4" />
-            </span>
-            CareerFlow AI
+        <aside className="glass sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-y-auto border-r border-line lg:flex">
+          <Link href="/app" className="px-5 pt-5 pb-2">
+            <Logo size={34} />
           </Link>
-          <SideNav counts={counts} />
+          <div className="flex-1">
+            <SideNav counts={counts} />
+          </div>
+          <div className="bg-gradient-soft mx-3 mb-4 rounded-2xl border border-line px-3 py-3">
+            <CreatedBy />
+          </div>
         </aside>
         {drawer && (
           <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setDrawer(false)} />
-            <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-surface shadow-xl">
+            <div className="fade-in absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDrawer(false)} />
+            <aside className="pop-in absolute inset-y-0 left-0 w-72 overflow-y-auto bg-surface shadow-xl">
               <div className="flex items-center justify-between px-5 pt-4">
-                <span className="font-semibold">CareerFlow AI</span>
+                <Logo size={30} />
                 <button className="btn btn-ghost btn-sm" onClick={() => setDrawer(false)} aria-label="Close menu">
                   <Icons.X className="size-4" />
                 </button>
               </div>
               <SideNav counts={counts} onNavigate={() => setDrawer(false)} />
+              <CreatedBy className="px-5 pb-6" />
             </aside>
           </div>
         )}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-bg/85 px-4 backdrop-blur">
+        <div className="aurora flex min-w-0 flex-1 flex-col">
+          <header className="glass sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line px-4">
             <button className="btn btn-ghost btn-sm lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu">
               <Icons.Menu className="size-4" />
             </button>
-            <button onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-line bg-surface px-3 text-left text-sm text-muted hover:border-line-strong">
+            <button onClick={() => setPalette(true)} className="flex h-10 w-full max-w-sm items-center gap-2 rounded-xl border border-line bg-surface/80 px-3 text-left text-sm text-muted transition hover:border-accent hover:shadow-[0_0_0_3px_var(--ring)]">
               <Icons.Search className="size-4" />
               <span className="flex-1">Search pages…</span>
               <kbd className="hidden rounded border border-line px-1.5 text-[10px] sm:inline">Ctrl K</kbd>
@@ -170,14 +174,14 @@ export function AppShell({ children, user, counts, signOut, banner }: { children
             <div className="ml-auto flex items-center gap-1">
               <Link href="/app/notifications" className="btn btn-ghost btn-sm relative" aria-label={`Notifications${counts["/app/notifications"] ? `, ${counts["/app/notifications"]} unread` : ""}`}>
                 <Icons.Bell className="size-4" />
-                {counts["/app/notifications"] ? <span className="absolute top-1 right-1 size-2 rounded-full bg-bad" /> : null}
+                {counts["/app/notifications"] ? <span className="pulse-dot absolute top-1 right-1 size-2 rounded-full bg-[#ec4899]" /> : null}
               </Link>
               <ThemeToggle />
               <details className="relative">
                 <summary className="btn btn-ghost btn-sm list-none" aria-label="Account menu">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold">{(user.name ?? user.email ?? "?").slice(0, 1).toUpperCase()}</span>
+                  <span className="bg-gradient flex size-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-md">{(user.name ?? user.email ?? "?").slice(0, 1).toUpperCase()}</span>
                 </summary>
-                <div className="card absolute right-0 mt-2 w-60 p-2 text-sm">
+                <div className="card pop-in absolute right-0 mt-2 w-60 p-2 text-sm">
                   <p className="truncate px-2 py-1.5 text-ink-2">{user.email}</p>
                   <Link href="/app/profile" className="block rounded-lg px-2 py-1.5 hover:bg-surface-2">
                     Career profile

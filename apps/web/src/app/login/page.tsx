@@ -5,6 +5,7 @@ import { appUrl, authMode, localAuthAllowed, safeNext } from "@/lib/config";
 import { createLocalSession, getSessionUser } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rate-limit";
+import { CreatedBy, Logo } from "@/components/logo";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
@@ -52,12 +53,15 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   if (await getSessionUser()) redirect(safeNext(sp.next));
   const mode = authMode();
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4">
-      <div className="card w-full max-w-sm p-7">
-        <Link href="/" className="font-semibold tracking-tight">
-          CareerFlow AI
+    <main className="aurora flex min-h-dvh flex-col items-center justify-center gap-6 px-4">
+      <div className="grid-bg absolute inset-0 -z-10" aria-hidden />
+      <div className="card card-glow pop-in w-full max-w-sm p-8 shadow-[var(--shadow-lg)]">
+        <Link href="/">
+          <Logo size={40} />
         </Link>
-        <h1 className="mt-5 text-xl font-semibold">Sign in</h1>
+        <h1 className="mt-6 text-2xl font-extrabold">
+          Welcome <span className="text-gradient">back</span>
+        </h1>
         <p className="mt-1 text-sm text-ink-2">Gmail access is requested separately, later, only if you choose to connect it.</p>
         {sp.error && (
           <p className="mt-4 rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad" role="alert">
@@ -98,6 +102,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           <p className="mt-6 text-sm text-bad">Authentication is not configured. Set the Supabase environment variables.</p>
         )}
       </div>
+      <CreatedBy className="fade-in" />
     </main>
   );
 }

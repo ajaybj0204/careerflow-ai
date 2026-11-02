@@ -280,6 +280,26 @@ describe("job portal email formats", () => {
     expect(generic.jobTitle).toBe("Business Analyst");
     expect(generic.company).toBe("Gamma Corp");
   });
+
+  it("reads LinkedIn's newer layout with title, company and city on separate lines", () => {
+    const li = classifyEmail(
+      mail({ subject: "Ajay, your application was sent to PhonePe", text: "Your application was sent to PhonePe\n\nOperations Executive\nPhonePe\nBengaluru\nView job: https://x\n\nView similar jobs\n\nOther Role\nWise\nHyderabad", from: "LinkedIn <jobs-noreply@linkedin.com>" }),
+    );
+    expect(li.company).toBe("PhonePe");
+    expect(li.jobTitle).toBe("Operations Executive");
+    const keka = classifyEmail(mail({ subject: "Application for Business Operations Associate received, Thank you!", text: "Hi Ajay, we have received your application.", from: "Indee <noreply@keka.com>" }));
+    expect(keka.jobTitle).toBe("Business Operations Associate");
+  });
+});
+
+describe("clear confirmations without a role", () => {
+  it("still creates the application with the role marked as not stated", async () => {
+    const m = mail({ subject: "Thank you for applying to Omega Labs", text: "Thanks for your interest. Our team will review your profile.", from: "Omega Labs <careers@omegalabs.example>" });
+    gmail.add(m);
+    const r = await processGmailMessage(db, user, m);
+    expect(r.outcome).toBe("created");
+    expect(await q("select company, role_title from applications")).toEqual([{ company: "Omega Labs", role_title: "Role not stated in email" }]);
+  });
 });
 
 describe("re-checking emails in Needs Review", () => {

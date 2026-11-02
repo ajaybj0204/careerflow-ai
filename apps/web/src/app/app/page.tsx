@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarClock, ClipboardCheck, FileText, Inbox, Mail, MessagesSquare, Sparkles, Upload } from "lucide-react";
 import { computeMetrics, dailyPlan } from "@careerflow/core";
-import { Badge, Card, EmptyState, fmtDate, Notice, PageHeader, Stat, StatusBadge, timeAgo } from "@/components/ui";
+import { Badge, Card, EmptyState, fmtDate, Notice, Stat, StatusBadge, timeAgo } from "@/components/ui";
 import { withUser } from "@/lib/session";
 
 export const metadata = { title: "Dashboard" };
@@ -24,20 +24,28 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={`${greeting}${name ? `, ${name}` : ""}`}
-        description="Your daily career action plan, built from your applications, emails and practice."
-        actions={
-          <>
-            <Link href="/app/applications/new" className="btn btn-secondary">
+      <section className="bg-gradient relative overflow-hidden rounded-3xl px-6 py-7 text-white shadow-[var(--shadow-lg)] sm:px-8">
+        <div className="float absolute -top-16 -right-10 size-56 rounded-full bg-white/15 blur-2xl" aria-hidden />
+        <div className="float absolute -bottom-20 left-1/3 size-48 rounded-full bg-white/10 blur-2xl" style={{ animationDelay: "2s" }} aria-hidden />
+        <div className="relative flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <p className="text-sm font-semibold text-white/80">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">
+              {greeting}
+              {name ? `, ${name}` : ""} 👋
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-white/85">Your daily career action plan, built from your applications, emails and practice.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/app/applications/new" className="btn border-white/40 bg-white/15 text-white backdrop-blur hover:bg-white/25">
               Add application
             </Link>
-            <Link href="/app/resume" className="btn btn-primary">
+            <Link href="/app/resume" className="btn bg-white text-[#7c3aed] shadow-lg hover:-translate-y-0.5 hover:bg-white">
               <FileText className="size-4" /> Prepare a resume
             </Link>
-          </>
-        }
-      />
+          </div>
+        </div>
+      </section>
       {sp.welcome && (
         <Notice tone="good" title="You're set up">
           Next: <Link className="link" href="/app/resume">upload your master resume</Link>, review the extracted facts in <Link className="link" href="/app/profile">My Career Profile</Link>, and <Link className="link" href="/app/settings#gmail">connect Gmail</Link> to track applications automatically.
@@ -66,7 +74,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Applications" value={d.metrics.submitted} hint={`${d.metrics.saved} saved`} href="/app/applications" />
         <Stat label="Response rate" value={d.metrics.responseRate === null ? "—" : `${d.metrics.responseRate}%`} hint={`${d.metrics.responded} responded`} href="/app/analytics" />
         <Stat label="Interviews" value={d.metrics.interviews} hint={d.metrics.interviewRate === null ? "" : `${d.metrics.interviewRate}% of applied`} href="/app/interview" />

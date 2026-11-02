@@ -109,6 +109,10 @@ async function classify(db: Database, userId: string, m: GmailMessage): Promise<
   }
 }
 
+export const ROLE_NOT_STATED = "Role not stated in email";
+/** Subjects that clearly confirm an application was submitted (not account sign-ups or job alerts). */
+const STRONG_CONFIRMATION = /your application was sent to|thank you for applying|application (?:has been |was )?(?:received|submitted)|we(?:'ve| have) received your application/i;
+
 const CATEGORY_STATUS: Partial<Record<EmailCategory, ApplicationStatus>> = {
   application_confirmation: "applied",
   recruiter_acknowledgement: "under_review",
@@ -188,13 +192,16 @@ export async function processGmailMessage(db: Database, userId: string, m: Gmail
     }
 
     // New application detected from a clear confirmation email with company and role
-    if (decision.kind === "low" && c.category === "application_confirmation" && c.company && c.jobTitle && c.confidence >= 0.8) {
+    // A clear "application sent/received" email without a readable role still counts; the role can be edited later.
+    const clearNoTitle = !c.jobTitle && c.confidence >= 0.85 && STRONG_CONFIRMATION.test(m.subject);
+    if (decision.kind === "low" && c.category === "application_confirmation" && c.company && (c.jobTitle || clearNoTitle) && c.confidence >= 0.8) {
+      const title = c.jobTitle || ROLE_NOT_STATED;
       const domain = rootDomain(emailDomain(m.fromEmail));
       const app = await tx.one<{ id: string }>(
         `insert into applications (user_id, company, company_domain, role_title, status, status_source, job_portal, external_job_id, external_application_id,
            confirmation_received_at, gmail_thread_ids, dedupe_key)
          values ($1,$2,$3,$4,'applied','gmail',$5,$6,$7,$8,$9::text[],null) returning id`,
-        [userId, c.company, c.source ? null : domain, c.jobTitle, c.source, c.jobId, c.applicationId, m.internalDate.toISOString(), [m.threadId]],
+        [userId, c.company, c.source ? null : domain, title, c.source, c.jobId, c.applicationId, m.internalDate.toISOString(), [m.threadId]],
       );
       await tx.query("insert into status_history (user_id, application_id, from_status, to_status, source, reason, confidence, evidence_message_id) values ($1,$2,null,'applied','gmail','Detected from confirmation email',$3,$4)", [
         userId,
@@ -211,7 +218,7 @@ export async function processGmailMessage(db: Database, userId: string, m: Gmail
       ]);
       await recordEvent(tx, userId, { applicationId: app!.id, type: "confirmation_received", source: "gmail", occurredAt: m.internalDate, payload: { subject: truncate(m.subject, 200) }, dedupeKey: `gmail:${m.id}:confirmation_received` });
       await upsertRecruiter(tx, userId, app!.id, c);
-      await notify(tx, userId, { type: "application_detected", title: `New application tracked: ${c.company}`, body: `${c.jobTitle} — detected from a confirmation email.`, link: `/app/applications/${app!.id}`, dedupeKey: `detected:${m.id}` });
+      await notify(tx, userId, { type: "application_detected", title: `New application tracked: ${c.company}`, body: `${title} — detected from a confirmation email.`, link: `/app/applications/${app!.id}`, dedupeKey: `detected:${m.id}` });
       await setOutcome("created");
       return { outcome: "created" as const, applicationId: app!.id, category: c.category };
     }

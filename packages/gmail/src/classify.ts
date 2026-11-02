@@ -203,10 +203,16 @@ export function portalExtract(m: Pick<GmailMessage, "subject" | "text">): { comp
     company = trimField(li[1]);
     if (company) {
       const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-      const idx = lines.findIndex((l) => new RegExp(`^${escapeRe(company!)}\\s*[·•|-]`, "i").test(l));
+      // Layouts seen: "Title" then "Company · City", or "Title" / "Company" / "City" on separate lines
+      const sent = lines.findIndex((l) => /application was sent to/i.test(l));
+      const idx = lines.findIndex((l, i) => i > sent + 1 && new RegExp(`^${escapeRe(company!)}\\s*(?:[·•|-]|$)`, "i").test(l));
       if (idx > 0 && !/application was sent/i.test(lines[idx - 1])) title = trimField(lines[idx - 1]);
     }
   }
+  // "Application for <title> received" (Keka and similar ATS)
+  title = title ?? trimField(subj.match(/^application for\s+(.{3,80}?)\s+(?:received|submitted)\b/i)?.[1]);
+  // "Thank you for applying to <company>"
+  company = company ?? trimField(subj.match(/thank you for applying (?:to|at|with)\s+(.+?)[!.]?\s*$/i)?.[1]);
   // Indeed: "Indeed Application: <title>"
   const indeed = subj.match(/indeed application:\s*(.+)$/i);
   if (indeed) {
