@@ -140,7 +140,7 @@ Legend
 - ✅ Gemini AI on the live site (Copilot answer; missing profile facts listed instead of invented).
   Model `gemini-2.5-flash` was retired for new users → now `gemini-3.6-flash` with automatic fallbacks.
 - ✅ Connect Gmail on the live site: read-only scope granted, tokens stored encrypted, sync checkpoint set via the Gmail API.
-- ⬜ Historical Gmail import on real mail (user's choice in Settings → Gmail).
-- ⬜ Frequent background schedule: add GitHub secrets `APP_URL` and `CRON_SECRET` (Vercel Hobby cron runs once a day).
+- ✅ Historical Gmail import on real mail (90 days): 38 applications created automatically, the rest sent to Needs Review.
+- ✅ Frequent background schedule: GitHub Actions calls the tick every 15 minutes (secrets set, run verified 200). Vercel cron remains as a daily backup.
 - ⬜ Gmail push (Pub/Sub) not configured; polling fallback is used.
 - Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.
