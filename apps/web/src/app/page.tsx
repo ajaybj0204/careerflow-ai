@@ -14,7 +14,10 @@ const features = [
   { icon: ShieldCheck, title: "Private by design", body: "Row-level isolation, encrypted Google tokens, read-only Gmail access, minimal data sent to AI, full export and deletion." },
 ];
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  // Supabase falls back to the Site URL when the callback URL is not on its allow-list; finish sign-in anyway.
+  const { code } = await searchParams;
+  if (code && /^[\w-]{10,}$/.test(code)) redirect(`/auth/callback?code=${encodeURIComponent(code)}&next=%2Fapp`);
   if (await getSessionUser()) redirect("/app");
   return (
     <div className="min-h-dvh">
