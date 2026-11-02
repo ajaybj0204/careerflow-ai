@@ -1,6 +1,6 @@
 # Free scheduler for frequent background work (Gmail polling fallback, alerts, reminders).
 # Vercel Hobby crons run at most once a day, so this calls the tick endpoint every 15 minutes.
-# Set repository secrets APP_URL (e.g. https://careerflow.vercel.app) and CRON_SECRET.
+# Set repository secrets APP_URL (e.g. https://careerflow-ajaybj.vercel.app) and CRON_SECRET (same value as the app).
 name: CareerFlow scheduler
 on:
   schedule:
