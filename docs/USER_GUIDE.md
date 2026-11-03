@@ -10,6 +10,11 @@
 - **Discover Jobs**: search permitted feeds; each listing shows its source, freshness and why it matches.
 - **Job Portal Hub**: open Naukri, LinkedIn, Indeed, Foundit and others with your keywords.
 - **Chrome extension**: on any job page click *Capture this job posting*, check the details, *Save*.
+- **Fill application forms**: on an application form, click the extension's *Fill this application* (or press **Alt+Shift+F**).
+  Green = filled from your profile, yellow = AI draft to read and edit, orange = for you (personal questions, missing facts, custom dropdowns).
+  Check everything and submit on the site yourself; CareerFlow never submits. Answers you type are remembered for the next form, and after a
+  confirmed submission the job is marked *Applied* in CareerFlow. In the extension settings, *Allow on job sites* shows a *Fill with CareerFlow*
+  button by itself on Greenhouse, Lever, Workday, Naukri and other job sites (not LinkedIn).
 
 ## 3. Prepare and apply
 - Open the job's **workspace** → *Job description* → paste the JD → *Save and analyse* for a match report.

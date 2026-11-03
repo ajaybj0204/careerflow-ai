@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabase } from "@careerflow/database";
-import { createApplication, getCareerContext, recordEvent, setStatusManually } from "@careerflow/core";
+import { answerQuestion, createApplication, getAutofillData, getCareerContext, getResumeFile, markAppliedFromExtension, recordEvent, saveLearnedAnswers, setStatusManually } from "@careerflow/core";
 import { appUrl } from "@/lib/config";
 import { cors, withExtension } from "@/lib/extension";
 
@@ -14,6 +14,26 @@ const saveSchema = z.object({
   location: z.string().max(200).optional().nullable(),
   externalJobId: z.string().max(100).optional().nullable(),
 });
+
+const jobSchema = z.object({
+  company: z.string().trim().min(1).max(200),
+  roleTitle: z.string().trim().min(1).max(200),
+  url: z.string().url().max(2000),
+  portal: z.string().max(100).optional().nullable(),
+  location: z.string().max(200).optional().nullable(),
+  description: z.string().max(30000).optional().nullable(),
+});
+
+const draftSchema = z.object({
+  question: z.string().trim().min(3).max(2000),
+  charLimit: z.number().int().min(20).max(10000).optional().nullable(),
+  job: z
+    .object({ company: z.string().max(200).optional().nullable(), roleTitle: z.string().max(200).optional().nullable(), description: z.string().max(12000).optional().nullable() })
+    .optional()
+    .nullable(),
+});
+
+const learnSchema = z.object({ items: z.array(z.object({ question: z.string().max(2000), answer: z.string().max(6000) })).max(25) });
 
 export async function OPTIONS(req: Request) {
   return cors(req, new NextResponse(null, { status: 204 }));
@@ -52,6 +72,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ action: 
         };
       });
     }
+    if (action === "autofill") return db.withUser(uid, (tx) => getAutofillData(tx));
+    if (action === "resume") {
+      const file = await db.withUser(uid, (tx) => getResumeFile(tx));
+      if (!file) throw new Error("No resume uploaded yet. Upload one in CareerFlow → Resume.");
+      return file;
+    }
     if (action === "me") return { ok: true, appUrl: appUrl() };
     throw new Error("Unknown action");
   });
@@ -78,6 +104,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
         await recordEvent(tx, uid, { applicationId: id, type: "note_added", source: "extension", payload: { note: "Submission confirmed by you in the extension" } });
       });
       return { ok: true };
+    }
+    if (action === "draft-answer") {
+      // Drafts an answer to an open question on an application form. The extension marks it for review.
+      const d = draftSchema.parse(body);
+      const r = await answerQuestion(db, uid, { question: d.question, charLimit: d.charLimit ?? null, length: "short", job: d.job ?? null });
+      return { answer: r.answer, missingFacts: r.missingFacts, method: r.method };
+    }
+    if (action === "save-answers") {
+      const { items } = learnSchema.parse(body);
+      return db.withUser(uid, (tx) => saveLearnedAnswers(tx, uid, items));
+    }
+    if (action === "applied") {
+      // Sent after the extension saw a submitted application form and its confirmation (or the user confirmed).
+      const j = jobSchema.parse(body);
+      const r = await db.withUser(uid, (tx) => markAppliedFromExtension(tx, uid, j));
+      return { ...r, workspaceUrl: `${appUrl()}/app/applications/${r.id}` };
     }
     throw new Error("Unknown action");
   });

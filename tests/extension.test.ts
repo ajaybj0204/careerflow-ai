@@ -11,7 +11,17 @@ describe("Chrome extension", () => {
     expect(m.permissions.sort()).toEqual(["activeTab", "scripting", "storage"]);
     expect(m.host_permissions).toBeUndefined();
     expect(m.content_scripts).toBeUndefined(); // no always-on page access
-    expect(m.background).toBeUndefined();
+    // A background worker exists only to talk to CareerFlow and run the Alt+Shift+F shortcut.
+    expect(m.background).toEqual({ service_worker: "background.js", type: "module" });
+    expect(m.commands["fill-form"].suggested_key.default).toBe("Alt+Shift+F");
+  });
+
+  it("only offers the automatic Fill button on job sites, never LinkedIn", async () => {
+    // @ts-expect-error plain JS module shipped with the extension
+    const { JOB_SITES } = await import("../apps/extension/src/sites.js");
+    expect(JOB_SITES.length).toBeGreaterThan(10);
+    expect(JOB_SITES.every((s: string) => /^https:\/\/\*\.[a-z.]+\/\*$/.test(s))).toBe(true);
+    expect(JOB_SITES.some((s: string) => s.includes("linkedin"))).toBe(false);
   });
 
   it("parses schema.org JobPosting data", () => {

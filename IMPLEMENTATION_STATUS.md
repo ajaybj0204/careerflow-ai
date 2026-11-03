@@ -12,7 +12,7 @@ Legend
 - `npm test` → **52 tests passed** across 5 files (database/RLS, document engine, Gmail automation, features, extension).
 - `npm run typecheck` → clean (packages, tests, worker, web).
 - `npm run build` → production build succeeded (47 routes).
-- `npm run extension:build` → manifest validated, 7 files in `apps/extension/dist`.
+- `npm run extension:build` → manifest validated, 12 files in `apps/extension/dist`.
 - In-browser (local test mode, `localhost:3100`): all 31 app pages returned 200 with no errors. Exercised end to end:
   sign-in → onboarding → master resume upload (DOCX) → confirm extracted facts → paste JD → job match report (90/100) →
   manual tailoring edit → DOCX + PDF generated and downloaded (valid files) → Copilot factual answer → Scam Detector →
@@ -94,7 +94,15 @@ Legend
 - ✅ Fresher Launchpad (readiness from real data) · ✅ Experienced tools (transferable skills, progression, gaps, leadership questions)
 - ✅ Notifications (in-app, per-type preferences, weekly/monthly summaries) · ✅ Calendar & tasks
 - ✅ Data export (ZIP, no tokens) · ✅ account deletion (local) · 🟡 Supabase user deletion
-- ✅ Chrome extension (MV3, minimal permissions, explicit capture, duplicate check, confirmed "applied", copy-only autofill suggestions) · 🟡 not loaded in a real Chrome profile
+- ✅ Chrome extension (MV3, minimal permissions, explicit capture, duplicate check, confirmed "applied")
+- ✅ Application form autofill (extension v0.2.0, 2026-11-03): "Fill this application" button, Alt+Shift+F shortcut, optional automatic Fill button on 29 job-site domains (not LinkedIn).
+  Fills name/email/phone/location/links/company/title/experience/notice/CTC/education/skills from verified profile facts, attaches the primary resume,
+  picks dropdown and radio options (number ranges, Yes/No, country codes), reuses saved answers, drafts open questions with Gemini (marked yellow),
+  never fills personal/legal questions (gender, DOB, caste, ID numbers), never submits. Learns answers you type; marks the job Applied after a
+  submission + confirmation message (no duplicates; never moves a later stage back). Multi-step forms (Workday) offer "Fill this step".
+  Verified: 13 unit tests + 27 browser checks in headless Chrome on Greenhouse-, Lever-, React- and Workday-style sample forms.
+  🟡 Not yet verified as an installed extension on live job sites (branded Chrome can't load unpacked extensions headlessly); custom JS dropdowns
+  (e.g. react-select, Workday searchable lists) are highlighted for you rather than filled.
 
 ## Known gaps / next steps (in priority order)
 1. Configure Supabase + Google OAuth + Gemini and run the live checks in `DEPLOYMENT.md` → "Acceptance checklist".

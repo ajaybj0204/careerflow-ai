@@ -182,11 +182,24 @@ const FACT_QUESTIONS: { re: RegExp; answer: (c: CareerContext) => string | null 
 export async function answerQuestion(
   db: Database,
   userId: string,
-  input: { question: string; applicationId?: string | null; tone?: Tone; charLimit?: number | null; length?: "short" | "detailed"; instruction?: string },
+  input: {
+    question: string;
+    applicationId?: string | null;
+    tone?: Tone;
+    charLimit?: number | null;
+    length?: "short" | "detailed";
+    instruction?: string;
+    /** Job details read from the page when there is no saved application (Chrome extension) */
+    job?: { company?: string | null; roleTitle?: string | null; description?: string | null } | null;
+  },
 ) {
   const { ctx, app } = await db.withUser(userId, async (tx) => ({
     ctx: await getCareerContext(tx, { includeAnswers: true }),
-    app: input.applicationId ? await tx.one("select company, role_title, job_description from applications where id = $1", [input.applicationId]) : null,
+    app: input.applicationId
+      ? await tx.one("select company, role_title, job_description from applications where id = $1", [input.applicationId])
+      : input.job
+        ? { company: input.job.company ?? "the company", role_title: input.job.roleTitle ?? "this role", job_description: input.job.description ?? null }
+        : null,
   }));
   // Factual questions are answered straight from the profile (no AI needed, no guessing)
   const fact = FACT_QUESTIONS.find((f) => f.re.test(input.question));

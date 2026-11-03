@@ -19,3 +19,4 @@ export * from "./scam";
 export * from "./research";
 export * from "./account";
 export * from "./scheduler";
+export * from "./autofill";

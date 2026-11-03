@@ -1,4 +1,5 @@
 import { normalizeAppUrl } from "./lib.js";
+import { JOB_SITES } from "./sites.js";
 
 const form = document.getElementById("form");
 const status = document.getElementById("status");
@@ -27,3 +28,26 @@ form.addEventListener("submit", async (e) => {
     status.className = "error";
   }
 });
+
+// Autofill preferences (all on by default)
+for (const id of ["aiDrafts", "autoTrack", "autoLearn"]) {
+  const box = document.getElementById(id);
+  chrome.storage.local.get(id).then((v) => (box.checked = v[id] !== false));
+  box.addEventListener("change", () => chrome.storage.local.set({ [id]: box.checked }));
+}
+
+const sitesBtn = document.getElementById("sites");
+const sitesStatus = document.getElementById("sitesStatus");
+async function showSites() {
+  const has = await chrome.permissions.contains({ origins: JOB_SITES });
+  sitesBtn.textContent = has ? "Turn off on job sites" : "Allow on job sites";
+  sitesStatus.textContent = has ? "On: the Fill button appears on application forms on these sites." : "Off.";
+  return has;
+}
+sitesBtn.addEventListener("click", async () => {
+  const has = await chrome.permissions.contains({ origins: JOB_SITES });
+  if (has) await chrome.permissions.remove({ origins: JOB_SITES });
+  else await chrome.permissions.request({ origins: JOB_SITES });
+  await showSites();
+});
+showSites();

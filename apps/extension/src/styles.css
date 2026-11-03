@@ -3,7 +3,7 @@
   --ink: #18181b;
   --muted: #71717a;
   --line: #e4e4e7;
-  --accent: #2f5bea;
+  --accent: #7c3aed;
   --good: #15803d;
   --bad: #b91c1c;
   color-scheme: light dark;
@@ -121,3 +121,10 @@ details {
 .answer.copied {
   border-color: var(--good);
 }
+
+.fillbox { margin-bottom: 8px; }
+.btn.big { width: 100%; padding: 10px 12px; font-size: 14px; background: linear-gradient(120deg, #6366f1, #a855f7 55%, #ec4899); border: 0; color: #fff; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 11px; }
+label.check { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); font-size: 14px; }
+label.check input { width: auto; margin-top: 3px; }

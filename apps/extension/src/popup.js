@@ -1,4 +1,5 @@
 import { buildJob } from "./lib.js";
+import { fillTab } from "./fill-tab.js";
 
 const $ = (id) => document.getElementById(id);
 let cfg = null;
@@ -89,6 +90,34 @@ async function init() {
     showError(e.message);
   }
 }
+
+$("fill").addEventListener("click", async () => {
+  showError("");
+  const btn = $("fill");
+  btn.disabled = true;
+  btn.textContent = "Filling…";
+  try {
+    if (!tab?.id || !/^https?:/.test(tab.url || "")) throw new Error("Open the job application page first.");
+    const r = await fillTab(tab.id);
+    const box = $("fillResult");
+    box.hidden = false;
+    if (!r.filled && !r.drafted && r.errors.length) throw new Error(r.errors[0]);
+    if (!r.filled && !r.drafted && !r.needs) {
+      box.textContent = "No application form found on this page. Open the form (click Apply on the job site) and try again.";
+    } else {
+      box.textContent = `Filled ${r.filled} field${r.filled === 1 ? "" : "s"}${r.resume ? " and attached your resume" : ""}.` +
+        (r.drafted ? ` ${r.drafted} AI draft${r.drafted === 1 ? "" : "s"} (yellow) to read and edit.` : "") +
+        (r.needs ? ` ${r.needs} left for you (orange).` : "") +
+        (r.missing?.length ? ` Add to your CareerFlow profile to fill more: ${r.missing.join(", ")}.` : "") +
+        " Check everything, then submit on the site.";
+    }
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Fill again";
+  }
+});
 
 $("capture").addEventListener("click", async () => {
   showError("");

@@ -14,9 +14,20 @@
       <button class="btn primary" type="submit">Save and test</button>
     </form>
     <p id="status"></p>
+    <h2>Autofill</h2>
+    <label class="check"><input type="checkbox" id="aiDrafts" /> Draft answers to open questions with AI (marked yellow for you to check)</label>
+    <label class="check"><input type="checkbox" id="autoTrack" /> When an application is submitted and confirmed, mark it Applied in CareerFlow</label>
+    <label class="check"><input type="checkbox" id="autoLearn" /> Remember answers I type into forms, so the next form fills them</label>
+    <h3>Fill button on job sites</h3>
+    <p class="hint">Show the “Fill with CareerFlow” button automatically on application pages of Greenhouse, Lever, Workday, SmartRecruiters, Keka, Darwinbox, iCIMS, Naukri, Indeed and other job sites. Without this, use the popup button or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> on any site.</p>
+    <button class="btn" id="sites" type="button">Allow on job sites</button>
+    <p id="sitesStatus" class="hint"></p>
     <h2>Privacy</h2>
     <ul>
-      <li>The extension reads a page only when you click “Capture” in the popup.</li>
+      <li>Autofill uses only facts from your CareerFlow profile and your saved answers. Personal questions (gender, date of birth, caste, ID numbers) are never filled.</li>
+      <li>It never clicks Submit. You review every form and submit it yourself.</li>
+      <li>On job sites you allow, it only checks whether the page has an application form. It does not record your browsing.</li>
+      <li>The extension reads a page only when you click “Capture” or “Fill”, or on job sites you allowed.</li>
       <li>It does not track your browsing, store portal passwords, or submit applications.</li>
       <li>It talks only to the CareerFlow URL you enter here.</li>
     </ul>

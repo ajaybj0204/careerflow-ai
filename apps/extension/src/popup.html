@@ -15,8 +15,14 @@
       <a class="btn primary" href="options.html" target="_blank">Open settings</a>
     </section>
     <section id="main" hidden>
+      <div class="fillbox">
+        <button id="fill" class="btn primary big">Fill this application</button>
+        <p class="hint">Fills the form on this page from your CareerFlow profile. Shortcut: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>. You review and submit yourself.</p>
+        <p id="fillResult" class="note" hidden></p>
+      </div>
+      <hr />
       <div id="existing" class="note" hidden></div>
-      <button id="capture" class="btn primary">Capture this job posting</button>
+      <button id="capture" class="btn">Capture this job posting</button>
       <form id="form" hidden>
         <label>Role <input name="roleTitle" required maxlength="200" /></label>
         <label>Company <input name="company" required maxlength="200" /></label>
