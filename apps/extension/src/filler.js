@@ -293,7 +293,7 @@
       .card{font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#15122b;background:#fff;border:1px solid #e8e5f2;border-radius:16px;box-shadow:0 18px 40px -12px rgba(76,29,149,.35);width:300px;padding:12px 14px;animation:pop .35s cubic-bezier(.34,1.56,.64,1)}
       @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}}
       .top{display:flex;align-items:center;gap:8px;font-weight:700}
-      .logo{width:22px;height:22px;border-radius:7px;background:linear-gradient(120deg,#6366f1,#a855f7 55%,#ec4899)}
+      .logo{width:24px;height:24px;filter:drop-shadow(0 3px 8px rgba(168,85,247,.4))}
       .x{margin-left:auto;border:0;background:none;font-size:16px;cursor:pointer;color:#8a85a3}
       .msg{margin:8px 0 0;color:#4d4866}
       .row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
@@ -307,7 +307,7 @@
       .err{color:#be123c}
     </style>
     <div class="card" role="dialog" aria-label="CareerFlow autofill">
-      <div class="top"><span class="logo"></span>CareerFlow <button class="x" title="Close" aria-label="Close">×</button></div>
+      <div class="top"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="cfg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"/><stop offset=".55" stop-color="#A855F7"/><stop offset="1" stop-color="#EC4899"/></linearGradient></defs><rect width="48" height="48" rx="14" fill="url(#cfg)"/><path d="M33.2 15.6A12 12 0 1 0 33.2 32.4" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round"/><path d="M19 28.5l5-5 3.5 3L37 17" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M31.5 16.2H37.6V22.3" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>CareerFlow <button class="x" title="Close" aria-label="Close">×</button></div>
       <p class="msg" id="msg">This looks like an application form.</p>
       <div class="legend" id="legend" hidden><span><i class="dot" style="background:${STATE.filled}"></i>Filled</span><span><i class="dot" style="background:${STATE.drafted}"></i>AI draft – check</span><span><i class="dot" style="background:${STATE.needs}"></i>You</span></div>
       <div class="row" id="actions"><button class="b p" id="fill">Fill with CareerFlow</button></div>

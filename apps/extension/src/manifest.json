@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
   "name": "CareerFlow AI Companion",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Fill job application forms from your CareerFlow profile, save postings, and track applications. Never submits for you.",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "CareerFlow AI"
+    "default_title": "CareerFlow AI",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png"
+    }
   },
   "options_page": "options.html",
   "permissions": [
@@ -30,5 +35,11 @@
       },
       "description": "Fill this job application with CareerFlow"
     }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   }
 }
