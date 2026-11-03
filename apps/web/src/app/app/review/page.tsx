@@ -4,7 +4,8 @@ import { STATUS_LABEL } from "@careerflow/shared";
 import { ActionButton, ActionForm, SubmitButton } from "@/components/client";
 import { Badge, EmptyState, fmtDate, PageHeader } from "@/components/ui";
 import { withUser } from "@/lib/session";
-import { resolveReviewAction } from "../_actions/misc";
+import { lastReviewClear } from "@careerflow/core";
+import { clearAllReviewsAction, resolveReviewAction, undoClearReviewsAction } from "../_actions/misc";
 
 export const metadata = { title: "Needs Review" };
 
@@ -16,10 +17,37 @@ export default async function Review() {
        where r.status = 'open' order by r.created_at desc`,
     ),
     apps: await tx.query("select id, company, role_title from applications where not archived order by last_activity_at desc limit 200"),
+    lastClear: await lastReviewClear(tx),
   }));
+  const n = d.items.length;
   return (
     <div className="space-y-5">
-      <PageHeader title="Needs Review" description="CareerFlow only updates applications automatically when the evidence is clear. Everything uncertain waits here for you — nothing is marked rejected or selected on ambiguous evidence." />
+      <PageHeader
+        title="Needs Review"
+        description="CareerFlow only updates applications automatically when the evidence is clear. Everything uncertain waits here for you — nothing is marked rejected or selected on ambiguous evidence."
+        actions={
+          n > 0 ? (
+            <ActionButton
+              action={clearAllReviewsAction}
+              className="btn btn-danger"
+              pendingText="Clearing…"
+              confirm={`Clear all ${n} item${n === 1 ? "" : "s"} from Needs Review? Nothing changes in your applications or Gmail. You can undo this for 24 hours.`}
+            >
+              Clear all ({n})
+            </ActionButton>
+          ) : null
+        }
+      />
+      {d.lastClear && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-2.5 text-sm">
+          <span className="text-ink-2">
+            You cleared {d.lastClear.n} items {fmtDate(d.lastClear.at, true)}.
+          </span>
+          <ActionButton action={undoClearReviewsAction} pendingText="Restoring…">
+            Undo clear all
+          </ActionButton>
+        </div>
+      )}
       {!d.items.length ? (
         <EmptyState icon={<Inbox className="size-6" />} title="All clear">
           Nothing needs your confirmation.

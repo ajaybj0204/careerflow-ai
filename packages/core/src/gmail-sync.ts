@@ -359,6 +359,29 @@ export async function resolveReview(tx: Tx, userId: string, reviewId: string, ac
   await tx.query("update review_queue set status = $2, resolved_at = now() where id = $1", [reviewId, action.decision === "accept" ? "accepted" : action.decision === "reject" ? "rejected" : "dismissed"]);
 }
 
+/** Dismisses every open review item at once (one shared timestamp, so the batch can be undone). */
+export async function dismissAllReviews(tx: Tx) {
+  const rows = await tx.query("update review_queue set status = 'dismissed', resolved_at = now() where status = 'open' returning id");
+  return { dismissed: rows.length };
+}
+
+/** The most recent "Clear all" batch, if it happened in the last 24 hours (for the Undo button). */
+export async function lastReviewClear(tx: Tx) {
+  return tx.one<{ at: string; n: number }>(
+    `select resolved_at as at, count(*)::int as n from review_queue
+      where status = 'dismissed' and resolved_at > now() - interval '24 hours'
+      group by resolved_at having count(*) > 1 order by resolved_at desc limit 1`,
+  );
+}
+
+/** Puts the most recent "Clear all" batch back into Needs Review. */
+export async function undoReviewClear(tx: Tx) {
+  const last = await lastReviewClear(tx);
+  if (!last) return { restored: 0 };
+  const rows = await tx.query("update review_queue set status = 'open', resolved_at = null where status = 'dismissed' and resolved_at = $1 returning id", [last.at]);
+  return { restored: rows.length };
+}
+
 // ---------------------------------------------------------------------------
 // Import, incremental sync, push watch, disconnect
 // ---------------------------------------------------------------------------

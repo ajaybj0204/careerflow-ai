@@ -320,3 +320,23 @@ describe("re-checking emails in Needs Review", () => {
     expect(await q("select * from review_queue where status = 'open'")).toHaveLength(0);
   });
 });
+
+describe("clearing Needs Review", () => {
+  it("dismisses every open item at once, changes nothing else, and can be undone", async () => {
+    const { dismissAllReviews, lastReviewClear, undoReviewClear } = await import("@careerflow/core");
+    await db.asService(async (tx) => {
+      for (const n of [1, 2, 3]) await tx.query("insert into review_queue (user_id, kind, suggestion) values ($1,'new_application',$2::jsonb)", [user, JSON.stringify({ n })]);
+      await tx.query("insert into review_queue (user_id, kind, suggestion, status) values ($1,'new_application','{}'::jsonb,'accepted')", [user]);
+    });
+    const r = await db.withUser(user, (tx) => dismissAllReviews(tx));
+    expect(r.dismissed).toBe(3);
+    expect(await q("select * from review_queue where status = 'open'")).toHaveLength(0);
+    expect(await q("select * from review_queue where status = 'accepted'")).toHaveLength(1);
+    expect(await q("select * from applications")).toHaveLength(0);
+    expect(await db.withUser(user, (tx) => lastReviewClear(tx))).toMatchObject({ n: 3 });
+    const u = await db.withUser(user, (tx) => undoReviewClear(tx));
+    expect(u.restored).toBe(3);
+    expect(await q("select * from review_queue where status = 'open'")).toHaveLength(3);
+    expect(await db.withUser(user, (tx) => lastReviewClear(tx))).toBeNull();
+  });
+});

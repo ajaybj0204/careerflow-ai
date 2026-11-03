@@ -6,6 +6,8 @@ import {
   analyzeOfferLetter,
   enqueueJob,
   deleteAccount,
+  dismissAllReviews,
+  undoReviewClear,
   detectScam,
   disconnectGmail,
   incrementalSync,
@@ -46,6 +48,20 @@ export async function resolveReviewAction(_: ActionState, f: FormData) {
     );
     return { message: decision === "accept" ? "Confirmed and applied." : "Dismissed." };
   }, ["/app/review", "/app/applications", "/app"]);
+}
+
+export async function clearAllReviewsAction(_: ActionState, _f: FormData) {
+  return act(async () => {
+    const r = await withUser((tx) => dismissAllReviews(tx));
+    return { message: `Cleared ${r.dismissed} item${r.dismissed === 1 ? "" : "s"}.` };
+  }, ["/app/review", "/app"]);
+}
+
+export async function undoClearReviewsAction(_: ActionState, _f: FormData) {
+  return act(async () => {
+    const r = await withUser((tx) => undoReviewClear(tx));
+    return { message: `Restored ${r.restored} item${r.restored === 1 ? "" : "s"}.` };
+  }, ["/app/review", "/app"]);
 }
 
 // Gmail ---------------------------------------------------------------------------
