@@ -109,6 +109,8 @@ async function classify(db: Database, userId: string, m: GmailMessage): Promise<
         `From: ${m.from}\nDate: ${m.internalDate.toISOString()}\nSubject: ${m.subject}\n\n${m.text.slice(0, 3000)}`,
       ),
       temperature: 0,
+      // Sorting one email must not hold up the sync: if Gemini is slow, the rule-based result is used instead.
+      timeoutMs: 12_000,
     });
     // Rules stay the guard rail for newsletters and job alerts
     if (rules.category === "not_job_related" && rules.confidence >= 0.9) return { c: rules, method: "rules" };

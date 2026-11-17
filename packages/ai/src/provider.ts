@@ -16,6 +16,8 @@ export interface GenerateJsonRequest<T> {
   /** Ask the provider to ground answers in live web search and return sources. */
   grounding?: boolean;
   userId?: string | null;
+  /** Upper limit for the whole call (all retries and fallback models together). Default: 90 s per request. */
+  timeoutMs?: number;
 }
 
 export interface Source {

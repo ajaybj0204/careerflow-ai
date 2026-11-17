@@ -371,4 +371,14 @@ describe("Gemini model fallback", () => {
     expect(r.model).toBe("good-model");
     expect(tried).toEqual(["retired-model", "busy-model", "busy-model", "good-model"]);
   });
+
+  it("gives up on a slow model within timeoutMs, across fallbacks", async () => {
+    // Every model hangs until the request is aborted
+    const fetchImpl = ((_url: string, init: RequestInit) =>
+      new Promise((_, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)))) as unknown as typeof fetch;
+    const p = new GeminiProvider("k", "slow-model", undefined, fetchImpl, ["slow-2"]);
+    const started = Date.now();
+    await expect(p.generateJson({ feature: "t", system: "s", prompt: "p", schema: z.object({ answer: z.string() }), timeoutMs: 200 })).rejects.toThrow(/Could not reach/);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
 });

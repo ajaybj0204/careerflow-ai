@@ -43,7 +43,7 @@ export class GeminiProvider implements AIProvider {
   }
 
   /** Sends one request, moving to the next model when a model is unavailable. Retries a busy model once. */
-  private async send(body: unknown): Promise<{ res: Response; model: string }> {
+  private async send(body: unknown, overall?: AbortSignal): Promise<{ res: Response; model: string }> {
     let last: { res: Response; model: string } | null = null;
     for (const m of this.models) {
       for (let tryNo = 0; tryNo < 2; tryNo++) {
@@ -51,7 +51,7 @@ export class GeminiProvider implements AIProvider {
           method: "POST",
           headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(90_000),
+          signal: overall ? AbortSignal.any([overall, AbortSignal.timeout(90_000)]) : AbortSignal.timeout(90_000),
         });
         if (res.ok) return { res, model: m };
         last = { res, model: m };
@@ -67,6 +67,7 @@ export class GeminiProvider implements AIProvider {
     const schemaJson = jsonSchemaFor(req.schema);
     const inputChars = req.system.length + req.prompt.length;
     let lastError = "";
+    const overall = req.timeoutMs ? AbortSignal.timeout(req.timeoutMs) : undefined;
     // Attempt 1: native structured output. Attempt 2: retry with the validation error.
     // Grounded requests cannot use structured output, so the schema is put in the prompt instead.
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -90,7 +91,7 @@ export class GeminiProvider implements AIProvider {
       let res: Response;
       let usedModel = this.model;
       try {
-        ({ res, model: usedModel } = await this.send(body));
+        ({ res, model: usedModel } = await this.send(body, overall));
       } catch (e) {
         await this.audit(req, inputChars, 0, "error", String(e));
         throw new Error("Could not reach the AI service. Please try again.");
