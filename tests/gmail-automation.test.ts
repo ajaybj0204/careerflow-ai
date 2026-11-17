@@ -17,6 +17,7 @@ import {
   startHistoricalImport,
   GmailAuthError,
   interviewMode,
+  isSchedulerToken,
 } from "@careerflow/core";
 import { createUser, freshDb } from "./helpers";
 import { FakeGmail, mail } from "./fixtures/gmail";
@@ -256,6 +257,18 @@ describe("Gmail automation pipeline", () => {
     expect(interviewMode("In-person at our Bengaluru office")).toBe("onsite");
     expect(interviewMode("Round 2")).toBe("unknown");
     expect(interviewMode(null)).toBe("unknown");
+  });
+});
+
+describe("scheduler tokens", () => {
+  it("accepts only tokens whose hash is stored", async () => {
+    const token = crypto.randomBytes(32).toString("hex");
+    const hash = crypto.createHash("sha256").update(token).digest("hex");
+    await db.asService((tx) => tx.query("insert into scheduler_tokens (token_sha256, label) values ($1, 'test')", [hash]));
+    expect(await isSchedulerToken(db, token)).toBe(true);
+    expect(await isSchedulerToken(db, token + "x")).toBe(false);
+    expect(await isSchedulerToken(db, "")).toBe(false);
+    expect(await isSchedulerToken(db, hash)).toBe(false); // the stored hash itself is not a valid token
   });
 });
 

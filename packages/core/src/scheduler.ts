@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { Database } from "@careerflow/database";
 import { scheduleFollowUps } from "./applications";
 import { enqueueJob, notify, runDueJobs, type JobHandler } from "./automation";
@@ -38,6 +39,13 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
     });
   },
 };
+
+/** True when `token` matches one of the scheduler tokens (stored as SHA-256 hashes in scheduler_tokens). */
+export async function isSchedulerToken(db: Database, token: string) {
+  if (!token) return false;
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  return !!(await db.asService((tx) => tx.one("select 1 as ok from scheduler_tokens where token_sha256 = $1", [hash])));
+}
 
 /**
  * One scheduler tick. Called by Vercel Cron (/api/cron/tick) or the standalone worker.
