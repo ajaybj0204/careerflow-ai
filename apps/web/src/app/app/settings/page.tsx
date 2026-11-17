@@ -35,6 +35,8 @@ export default async function Settings({ searchParams }: { searchParams: Promise
     counts: await tx.one("select (select count(*)::int from processed_messages where outcome <> 'ignored') as tracked, (select count(*)::int from processed_messages where outcome = 'ignored') as ignored"),
   }));
   const np = d.prefs?.notification_prefs ?? {};
+  // A run that stopped early (time limit or Gmail quota) more recently than the last complete sync
+  const catchingUp = !!d.sync?.last_partial_at && (!d.sync.last_synced_at || new Date(d.sync.last_partial_at) > new Date(d.sync.last_synced_at));
   const gmailMsg: Record<string, [string, "good" | "bad" | "warn"]> = {
     connected: ["Gmail connected. Choose how far back to import below.", "good"],
     denied: ["Gmail access was not granted.", "warn"],
@@ -71,7 +73,13 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             <div className="grid gap-3 text-sm sm:grid-cols-4">
               <div className="rounded-lg bg-surface-2 p-3">
                 <p className="text-xs text-muted">Last sync</p>
-                <p>{d.sync?.last_synced_at ? timeAgo(d.sync.last_synced_at) : "Not yet"}</p>
+                {catchingUp ? (
+                  <p title="A backlog of emails is being processed in steps; each check continues where the last one stopped.">
+                    Catching up… <span className="text-xs text-muted">(checked {timeAgo(d.sync!.last_partial_at)})</span>
+                  </p>
+                ) : (
+                  <p>{d.sync?.last_synced_at ? timeAgo(d.sync.last_synced_at) : "Not yet"}</p>
+                )}
               </div>
               <div className="rounded-lg bg-surface-2 p-3">
                 <p className="text-xs text-muted">Live updates</p>

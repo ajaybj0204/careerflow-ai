@@ -522,7 +522,7 @@ export async function incrementalSync(db: Database, userId: string, opts: { dead
     } catch (e) {
       if (!(e instanceof SyncBudgetReached || isGmailRateLimit(e))) throw e;
       // Progress is kept (processed emails are recorded); the checkpoint stays so the next run picks up the rest.
-      await db.asService((tx) => tx.query("update gmail_sync_state set consecutive_failures = 0, last_error = null where user_id = $1", [userId]));
+      await db.asService((tx) => tx.query("update gmail_sync_state set consecutive_failures = 0, last_error = null, last_partial_at = now() where user_id = $1", [userId]));
       return { mode, outcomes, partial: true };
     }
     await db.asService((tx) =>

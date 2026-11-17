@@ -163,4 +163,6 @@ Legend
 - ✅ Reliable 15-minute scheduler (2026-11-17): Supabase pg_cron job `careerflow-tick` calls /api/cron/tick every 15 min with a
   token kept in Supabase Vault (only its SHA-256 hash is in `scheduler_tokens`). GitHub Actions turned out to run only every 4-8 h
   and stays as a backup, with the Vercel daily cron. Verified: manual pg_net call returned 200 and ran the queued jobs; setup in DEPLOYMENT.md §4.
+  Gmail is checked on every tick (`GMAIL_POLL_MINUTES=14` on Vercel; 14 so a 15-minute tick is never skipped by seconds).
+  Settings shows "Catching up…" while a backlog is processed in steps (`gmail_sync_state.last_partial_at`, migration 20261117000002).
 - Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.

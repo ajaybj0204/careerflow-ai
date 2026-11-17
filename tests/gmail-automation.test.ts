@@ -246,6 +246,8 @@ describe("Gmail automation pipeline", () => {
     gmail.add(mail({ subject: "Thank you for applying to Pi Systems", text: "Your application for the Analyst role has been received.", from: "Pi Systems <jobs@pisys.example>" }));
     const r = await incrementalSync(db, user, { deadline: Date.now() - 1 });
     expect(r.partial).toBe(true);
+    const ps: any = await db.asService((tx) => tx.one("select last_partial_at from gmail_sync_state where user_id = $1", [user]));
+    expect(ps.last_partial_at).not.toBeNull(); // Settings shows "Catching up"
     expect(await q("select * from applications")).toHaveLength(0);
     const st: any = await db.asService((tx) => tx.one("select history_id from gmail_sync_state where user_id = $1", [user]));
     expect(st.history_id).toBe("5");
