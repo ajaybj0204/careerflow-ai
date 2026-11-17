@@ -149,7 +149,7 @@ Legend
   Model `gemini-2.5-flash` was retired for new users → now `gemini-3.6-flash` with automatic fallbacks.
 - ✅ Connect Gmail on the live site: read-only scope granted, tokens stored encrypted, sync checkpoint set via the Gmail API.
 - ✅ Historical Gmail import on real mail (90 days): 38 applications created automatically, the rest sent to Needs Review.
-- ✅ Frequent background schedule: GitHub Actions calls the tick every 15 minutes (secrets set, run verified 200). Vercel cron remains as a daily backup.
+- ✅ Frequent background schedule: Supabase pg_cron every 15 minutes (since 2026-11-17); GitHub Actions and the Vercel daily cron are backups.
 - ✅ Title-less confirmations (LinkedIn's newer layout, "Thank you for applying to X") now create applications; re-check raised tracked applications from 38 to 105 and cut Needs Review from 207 to 135.
 - ✅ Visual redesign (2026-11-02): gradient brand, new logo/favicon, animated backgrounds and entrances, "Created by Ajay B J" credit.
 - ⬜ Gmail push (Pub/Sub) not configured; polling fallback is used.
@@ -160,5 +160,7 @@ Legend
   generateJson covers retries and fallback models) and the sync budget is 35 s.
   Verified: typecheck clean, `npm test` 74 passed (4 new). Live: after a few "Check for new emails now" clicks the sync caught up
   (last sync 2026-11-17 16:43 UTC, checkpoint advanced, 0 failures, 7 new applications), no Vercel runtime errors.
-- ⬜ GitHub Actions "every 15 min" scheduler actually runs only every 4-8 h (GitHub delays free scheduled workflows); Vercel daily cron is the backup.
+- ✅ Reliable 15-minute scheduler (2026-11-17): Supabase pg_cron job `careerflow-tick` calls /api/cron/tick every 15 min with a
+  token kept in Supabase Vault (only its SHA-256 hash is in `scheduler_tokens`). GitHub Actions turned out to run only every 4-8 h
+  and stays as a backup, with the Vercel daily cron. Verified: manual pg_net call returned 200 and ran the queued jobs; setup in DEPLOYMENT.md §4.
 - Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.

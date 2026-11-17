@@ -24,7 +24,27 @@ and a Gemini API key.
 ## 4. Background jobs
 The app never relies on an open browser. Pick one or more:
 - **Vercel Cron** (`apps/web/vercel.json`): daily on the Hobby plan (Hobby crons run at most once per day).
-- **GitHub Actions** (`.github/workflows/scheduler.yml`): every 15 minutes, free. Add repo secrets `APP_URL` and `CRON_SECRET`.
+- **Supabase pg_cron** (main schedule, every 15 minutes, free, reliable). Needs migration `20261117000001_scheduler_tokens.sql`.
+  Run once in the Supabase SQL editor. The token is generated inside the database: the raw value stays in Vault, the app only
+  stores its SHA-256 hash, so it never appears in code, Vercel or chat.
+  ```sql
+  create extension if not exists pg_net with schema extensions;
+  create extension if not exists pg_cron;
+  do $$ declare t text := encode(extensions.gen_random_bytes(32), 'hex'); begin
+    perform vault.create_secret(t, 'careerflow_scheduler_token', 'Bearer token pg_cron uses to call /api/cron/tick');
+    insert into public.scheduler_tokens (token_sha256, label) values (encode(extensions.digest(t, 'sha256'), 'hex'), 'supabase pg_cron');
+  end $$;
+  select cron.schedule('careerflow-tick', '*/15 * * * *', $job$
+    select net.http_post(
+      url := 'https://careerflow-ajaybj.vercel.app/api/cron/tick',
+      headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'careerflow_scheduler_token')),
+      timeout_milliseconds := 60000);
+  $job$);
+  ```
+  Check runs: `select status_code, left(content, 200), created from net._http_response order by id desc limit 5;`
+  Rotate: delete the Vault secret and the `scheduler_tokens` row, then run the `do` block again. Pause: `select cron.unschedule('careerflow-tick');`
+- **GitHub Actions** (`.github/workflows/scheduler.yml`): backup. Set to every 15 minutes, but GitHub delays free scheduled
+  workflows, so in practice it runs every few hours. Add repo secrets `APP_URL` and `CRON_SECRET`.
 - **Gmail push** via Pub/Sub: near-real-time for new emails; push only queues jobs, so pair it with one of the above.
 - **Standalone worker** (`npm run worker` with `APP_URL` and `CRON_SECRET`) on any always-on machine.
 
