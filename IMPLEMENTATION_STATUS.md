@@ -156,5 +156,9 @@ Legend
 - ✅ Gmail sync timeout fix (2026-11-17): sync had not succeeded since Nov 9 (backlog → 60 s timeouts → checkpoint never saved → loop;
   Gmail per-minute quota 403s; one AI interview format "virtual" broke the `interviews.mode` check). Sync now has a deadline and resumes
   on the next tick, skips already-processed emails before download, pauses on quota, and maps interview formats.
-  Verified: typecheck clean, `npm test` 73 passed (3 new). Live recovery checked via Supabase job table after deploy.
+  Second fix: Gemini took ~50 s per uncertain email, so AI email sorting is capped at 12 s (rules used if slower; `timeoutMs` on
+  generateJson covers retries and fallback models) and the sync budget is 35 s.
+  Verified: typecheck clean, `npm test` 74 passed (4 new). Live: after a few "Check for new emails now" clicks the sync caught up
+  (last sync 2026-11-17 16:43 UTC, checkpoint advanced, 0 failures, 7 new applications), no Vercel runtime errors.
+- ⬜ GitHub Actions "every 15 min" scheduler actually runs only every 4-8 h (GitHub delays free scheduled workflows); Vercel daily cron is the backup.
 - Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.
