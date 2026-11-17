@@ -1,6 +1,6 @@
 # CareerFlow AI — Implementation Status
 
-Last updated: 2026-11-02. This file is the persistent checklist for future sessions. Be strict: only mark something
+Last updated: 2026-11-17. This file is the persistent checklist for future sessions. Be strict: only mark something
 **Verified** when it was actually executed.
 
 Legend
@@ -153,4 +153,8 @@ Legend
 - ✅ Title-less confirmations (LinkedIn's newer layout, "Thank you for applying to X") now create applications; re-check raised tracked applications from 38 to 105 and cut Needs Review from 207 to 135.
 - ✅ Visual redesign (2026-11-02): gradient brand, new logo/favicon, animated backgrounds and entrances, "Created by Ajay B J" credit.
 - ⬜ Gmail push (Pub/Sub) not configured; polling fallback is used.
+- ✅ Gmail sync timeout fix (2026-11-17): sync had not succeeded since Nov 9 (backlog → 60 s timeouts → checkpoint never saved → loop;
+  Gmail per-minute quota 403s; one AI interview format "virtual" broke the `interviews.mode` check). Sync now has a deadline and resumes
+  on the next tick, skips already-processed emails before download, pauses on quota, and maps interview formats.
+  Verified: typecheck clean, `npm test` 73 passed (3 new). Live recovery checked via Supabase job table after deploy.
 - Deployment: Vercel project `careerflow-ajaybj` builds `apps/web` from GitHub `ajaybj0204/careerflow-ai`. Production env vars are set in Vercel.
