@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import crypto from "node:crypto";
 import type { Database } from "@careerflow/database";
-import { classifyEmail, decryptSecret, encryptSecret, signState, verifyState } from "@careerflow/gmail";
+import { classifyEmail, decryptSecret, encryptSecret, GmailHttpError, signState, verifyState } from "@careerflow/gmail";
 import {
   createApplication,
   disconnectGmail,
@@ -16,6 +16,7 @@ import {
   setStatusManually,
   startHistoricalImport,
   GmailAuthError,
+  interviewMode,
 } from "@careerflow/core";
 import { createUser, freshDb } from "./helpers";
 import { FakeGmail, mail } from "./fixtures/gmail";
@@ -204,6 +205,57 @@ describe("Gmail automation pipeline", () => {
     expect(await q("select * from applications")).toHaveLength(1);
     const st: any = await db.asService((tx) => tx.one("select history_id, consecutive_failures from gmail_sync_state where user_id = $1", [user]));
     expect(Number(st.history_id)).toBe(gmail.historyId);
+  });
+
+  it("stops on Gmail's per-minute quota, keeps progress, and resumes without re-downloading", async () => {
+    await db.asService((tx) => tx.query("insert into gmail_sync_state (user_id, history_id, last_synced_at) values ($1,'5',now() - interval '10 days')", [user]));
+    gmail.historyExpired = true; // poll mode re-lists the same mail on every run, like a stuck backlog
+    gmail.add(
+      mail({ subject: "Thank you for applying to Nu Labs", text: "Your application for the Data Analyst role has been received.", from: "Nu Labs <jobs@nulabs.example>" }),
+      mail({ subject: "Thank you for applying to Xi Corp", text: "Your application for the Business Analyst role has been received.", from: "Xi Corp <jobs@xicorp.example>" }),
+      mail({ subject: "Thank you for applying to Omicron", text: "Your application for the Operations Analyst role has been received.", from: "Omicron <jobs@omicron.example>" }),
+    );
+    const fetched: string[] = [];
+    const realGet = gmail.getMessage.bind(gmail);
+    let quotaLeft = 1;
+    gmail.getMessage = async (id: string) => {
+      if (quotaLeft-- <= 0) throw new GmailHttpError(403, "Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user'");
+      fetched.push(id);
+      return realGet(id);
+    };
+
+    const first = await incrementalSync(db, user);
+    expect(first.partial).toBe(true);
+    expect(await q("select * from applications")).toHaveLength(1);
+    let st: any = await db.asService((tx) => tx.one("select history_id, consecutive_failures from gmail_sync_state where user_id = $1", [user]));
+    expect(st.history_id).toBe("5"); // checkpoint not moved past unprocessed mail
+    expect(st.consecutive_failures).toBe(0);
+
+    quotaLeft = 100;
+    const second = await incrementalSync(db, user);
+    expect(second.partial).toBe(false);
+    expect(await q("select * from applications")).toHaveLength(3);
+    expect(new Set(fetched).size).toBe(fetched.length); // the first email was not downloaded twice
+    st = await db.asService((tx) => tx.one("select history_id from gmail_sync_state where user_id = $1", [user]));
+    expect(Number(st.history_id)).toBe(gmail.historyId);
+  });
+
+  it("stops at the deadline without failing", async () => {
+    await db.asService((tx) => tx.query("insert into gmail_sync_state (user_id, history_id, last_synced_at) values ($1,'5',now())", [user]));
+    gmail.add(mail({ subject: "Thank you for applying to Pi Systems", text: "Your application for the Analyst role has been received.", from: "Pi Systems <jobs@pisys.example>" }));
+    const r = await incrementalSync(db, user, { deadline: Date.now() - 1 });
+    expect(r.partial).toBe(true);
+    expect(await q("select * from applications")).toHaveLength(0);
+    const st: any = await db.asService((tx) => tx.one("select history_id from gmail_sync_state where user_id = $1", [user]));
+    expect(st.history_id).toBe("5");
+  });
+
+  it("maps free-text interview formats to the allowed values", () => {
+    expect(interviewMode("Virtual (Zoom)")).toBe("video");
+    expect(interviewMode("Telephonic")).toBe("phone");
+    expect(interviewMode("In-person at our Bengaluru office")).toBe("onsite");
+    expect(interviewMode("Round 2")).toBe("unknown");
+    expect(interviewMode(null)).toBe("unknown");
   });
 });
 

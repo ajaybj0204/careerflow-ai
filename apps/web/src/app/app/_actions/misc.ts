@@ -86,9 +86,12 @@ export async function gmailSyncNowAction(_: ActionState, _f: FormData) {
   return act(async () => {
     const { user, db } = await userDb();
     assertRateLimit(user.id, "gmail-sync", 4, 60_000);
-    const r = await incrementalSync(db, user.id);
+    // Stay well inside the 60 s function limit; anything left is picked up by the background scheduler.
+    const r = await incrementalSync(db, user.id, { deadline: Date.now() + 40_000 });
     const n = Object.entries(r.outcomes).map(([k, v]) => `${v} ${k}`).join(", ");
-    return { message: r.mode === "initialised" ? "Sync checkpoint set. New emails from now on will be tracked." : `Checked Gmail (${r.mode}). ${n || "No new job emails."}` };
+    if (r.mode === "initialised") return { message: "Sync checkpoint set. New emails from now on will be tracked." };
+    if (r.partial) return { message: `Checked part of your inbox (${n || "nothing new yet"}). The rest continues automatically in the background.` };
+    return { message: `Checked Gmail (${r.mode}). ${n || "No new job emails."}` };
   }, ["/app/settings", "/app/applications", "/app/review"]);
 }
 

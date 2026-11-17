@@ -9,8 +9,9 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
   "gmail.import": async (db, job) => {
     await runImportPage(db, job.user_id!);
   },
-  "gmail.sync": async (db, job) => {
-    await incrementalSync(db, job.user_id!);
+  "gmail.sync": async (db, job, ctx) => {
+    // A partial run is fine: progress is saved and the next tick continues from the same checkpoint.
+    await incrementalSync(db, job.user_id!, { deadline: ctx.deadline });
   },
   "gmail.reprocess": async (db, job) => {
     const r = await reprocessReviewEmails(db, job.user_id!, 20);
@@ -43,6 +44,8 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
  * Queues periodic work, then runs due jobs. Works without any browser open.
  */
 export async function schedulerTick(db: Database, opts: { workerId: string; limit?: number; budgetMs?: number }) {
+  // The budget covers the whole tick (queueing included), leaving headroom under the 60 s function limit.
+  const startedAt = Date.now();
   const gmailQueued = await schedulePeriodicGmailWork(db, { pollMinutes: Number(process.env.GMAIL_POLL_MINUTES ?? 30) });
   const day = new Date().toISOString().slice(0, 10);
   const hour = new Date().toISOString().slice(0, 13);
@@ -56,6 +59,6 @@ export async function schedulerTick(db: Database, opts: { workerId: string; limi
     const alertUsers = await tx.query<{ user_id: string }>("select distinct user_id from job_alerts where active");
     for (const a of alertUsers) await enqueueJob(tx, { userId: a.user_id, type: "jobs.alerts", dedupeKey: `alerts:${a.user_id}:${hour}`, maxAttempts: 2, once: true });
   });
-  const ran = await runDueJobs(db, JOB_HANDLERS, { workerId: opts.workerId, limit: opts.limit ?? 25, budgetMs: opts.budgetMs ?? 40_000 });
+  const ran = await runDueJobs(db, JOB_HANDLERS, { workerId: opts.workerId, limit: opts.limit ?? 25, budgetMs: Math.max(0, (opts.budgetMs ?? 40_000) - (Date.now() - startedAt)) });
   return { gmailQueued, ran };
 }

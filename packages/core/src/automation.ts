@@ -147,7 +147,8 @@ export interface JobRow {
   max_attempts: number;
 }
 
-export type JobHandler = (db: Database, job: JobRow) => Promise<void>;
+/** `ctx.deadline` is when the current run must stop (ms timestamp); long handlers should finish or pause by then. */
+export type JobHandler = (db: Database, job: JobRow, ctx: { deadline: number }) => Promise<void>;
 
 export function backoffMs(attempts: number) {
   return Math.min(6 * 60 * 60 * 1000, 2 ** attempts * 60 * 1000);
@@ -180,7 +181,7 @@ export async function runDueJobs(
     const handler = handlers[job.type];
     try {
       if (!handler) throw new Error(`No handler for job type ${job.type}`);
-      await handler(db, job);
+      await handler(db, job, { deadline });
       await db.asService((tx) => tx.query("update automation_jobs set status = 'succeeded', finished_at = now(), last_error = null where id = $1", [job.id]));
       results.push({ id: job.id, type: job.type, ok: true });
     } catch (e) {

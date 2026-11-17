@@ -82,6 +82,15 @@ export async function gmailApiFor(db: Database, userId: string): Promise<GmailAp
 // ---------------------------------------------------------------------------
 // Classification (rules first, AI refinement only when helpful and allowed)
 // ---------------------------------------------------------------------------
+/** The AI may describe the format freely ("virtual", "in-person", "Zoom"); the database accepts only these four. */
+export function interviewMode(raw: string | null | undefined): "video" | "phone" | "onsite" | "unknown" {
+  const s = (raw ?? "").toLowerCase();
+  if (/video|virtual|online|remote|zoom|meet|teams|webex|skype/.test(s)) return "video";
+  if (/phone|tele|call/.test(s)) return "phone";
+  if (/onsite|on-site|on site|in[- ]?person|office|face/.test(s)) return "onsite";
+  return "unknown";
+}
+
 async function classify(db: Database, userId: string, m: GmailMessage): Promise<{ c: EmailClassification; method: "rules" | "rules+ai" }> {
   const rules = classifyEmail(m);
   const consent = await db.asService((tx) => tx.one<{ ai_processing_consent: boolean }>("select ai_processing_consent from user_preferences where user_id = $1", [userId]));
@@ -304,7 +313,7 @@ export async function applyEmailToApplication(
         userId,
         appId,
         dt,
-        c.interviewMode ?? "unknown",
+        interviewMode(c.interviewMode),
         c.interviewLink,
         dt ? "scheduled" : "requested",
         dt ? null : `Date not found automatically. Email said: ${c.interviewDateTime ?? "see email"}`,
@@ -438,7 +447,22 @@ export async function runImportPage(db: Database, userId: string) {
 }
 
 /** Incremental sync using the Gmail history API, with a polling fallback when history is too old. */
-export async function incrementalSync(db: Database, userId: string) {
+/** Gmail's per-user rate limit ("Quota exceeded ... per minute per user"): stop and continue on the next run. */
+export function isGmailRateLimit(e: unknown) {
+  return e instanceof GmailHttpError && (e.status === 429 || (e.status === 403 && /quota|rate ?limit/i.test(e.message)));
+}
+
+class SyncBudgetReached extends Error {}
+
+/**
+ * Checks Gmail for new mail since the last checkpoint.
+ *
+ * `deadline` (ms timestamp) keeps one run inside the serverless time limit. A run that hits the deadline or
+ * Gmail's per-minute quota stops early with `partial: true`: every email handled so far is saved, the
+ * checkpoint is left where it was, and the next run continues. Emails already processed are skipped
+ * before they are downloaded, so retries do not spend Gmail quota on them again.
+ */
+export async function incrementalSync(db: Database, userId: string, opts: { deadline?: number } = {}) {
   const api = await gmailApiFor(db, userId);
   let st = await db.asService((tx) => tx.one("select * from gmail_sync_state where user_id = $1", [userId]));
   if (!st) {
@@ -447,39 +471,62 @@ export async function incrementalSync(db: Database, userId: string) {
   }
   const outcomes: Record<string, number> = {};
   const tally = (o: string) => (outcomes[o] = (outcomes[o] ?? 0) + 1);
+  const deadline = opts.deadline ?? Number.POSITIVE_INFINITY;
+  const processRefs = async (refs: { id: string }[]) => {
+    if (!refs.length) return;
+    const seen = await db.asService((tx) =>
+      tx.query<{ gmail_message_id: string }>("select gmail_message_id from processed_messages where user_id = $1 and gmail_message_id = any($2::text[])", [
+        userId,
+        refs.map((r) => r.id),
+      ]),
+    );
+    const done = new Set(seen.map((s) => s.gmail_message_id));
+    for (const ref of refs) {
+      if (done.has(ref.id)) continue;
+      if (Date.now() >= deadline) throw new SyncBudgetReached();
+      tally((await processGmailMessage(db, userId, await api.getMessage(ref.id))).outcome);
+    }
+  };
   try {
     if (!st.history_id) {
       const prof = await api.getProfile();
       await db.asService((tx) => tx.query("update gmail_sync_state set history_id = $2, last_synced_at = now(), consecutive_failures = 0 where user_id = $1", [userId, prof.historyId]));
-      return { mode: "initialised", outcomes };
+      return { mode: "initialised", outcomes, partial: false };
     }
     let historyId = st.history_id as string;
-    let pageToken: string | undefined;
     let mode = "history";
     try {
-      do {
-        const h = await api.listHistory(st.history_id, pageToken);
-        for (const ref of h.messageIds) tally((await processGmailMessage(db, userId, await api.getMessage(ref.id))).outcome);
-        historyId = h.historyId;
-        pageToken = h.nextPageToken;
-      } while (pageToken);
+      try {
+        let pageToken: string | undefined;
+        do {
+          const h = await api.listHistory(st.history_id, pageToken);
+          await processRefs(h.messageIds);
+          historyId = h.historyId;
+          pageToken = h.nextPageToken;
+        } while (pageToken);
+      } catch (e) {
+        if (!(e instanceof GmailHttpError && e.status === 404)) throw e;
+        // History expired (older than ~1 week): poll recent job-related mail instead, then reset the checkpoint
+        mode = "poll";
+        const since = new Date(new Date(st.last_synced_at ?? Date.now() - 7 * 864e5).getTime() - 864e5);
+        let token: string | undefined;
+        do {
+          const page = await api.listMessages(jobSearchQuery(since), token);
+          await processRefs(page.messages);
+          token = page.nextPageToken;
+        } while (token);
+        historyId = (await api.getProfile()).historyId;
+      }
     } catch (e) {
-      if (!(e instanceof GmailHttpError && e.status === 404)) throw e;
-      // History expired (older than ~1 week): poll recent job-related mail instead, then reset the checkpoint
-      mode = "poll";
-      const since = new Date(new Date(st.last_synced_at ?? Date.now() - 7 * 864e5).getTime() - 864e5);
-      let token: string | undefined;
-      do {
-        const page = await api.listMessages(jobSearchQuery(since), token);
-        for (const ref of page.messages) tally((await processGmailMessage(db, userId, await api.getMessage(ref.id))).outcome);
-        token = page.nextPageToken;
-      } while (token);
-      historyId = (await api.getProfile()).historyId;
+      if (!(e instanceof SyncBudgetReached || isGmailRateLimit(e))) throw e;
+      // Progress is kept (processed emails are recorded); the checkpoint stays so the next run picks up the rest.
+      await db.asService((tx) => tx.query("update gmail_sync_state set consecutive_failures = 0, last_error = null where user_id = $1", [userId]));
+      return { mode, outcomes, partial: true };
     }
     await db.asService((tx) =>
       tx.query("update gmail_sync_state set history_id = $2, last_synced_at = now(), consecutive_failures = 0, last_error = null, next_retry_at = null where user_id = $1", [userId, historyId]),
     );
-    return { mode, outcomes };
+    return { mode, outcomes, partial: false };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await db.asService(async (tx) => {
